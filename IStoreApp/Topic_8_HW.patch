@@ -1,0 +1,100 @@
+Index: src/main/java/edu/bionic/dao/jdbc/JdbcCommentDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/jdbc/JdbcCommentDao.java	(revision 0c0a1854752e79442f60d452cd09c227d6fbace9)
++++ src/main/java/edu/bionic/dao/jdbc/JdbcCommentDao.java	(revision c1bdcd9aaa174249863122e6171b187744753ae4)
+@@ -3,8 +3,10 @@
+ import edu.bionic.dao.CommentDao;
+ import edu.bionic.domain.Comment;
+ import org.springframework.context.annotation.Primary;
++import org.springframework.jdbc.core.BeanPropertyRowMapper;
+ import org.springframework.jdbc.core.JdbcTemplate;
+ import org.springframework.jdbc.core.RowMapper;
++import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+ import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+ import org.springframework.stereotype.Repository;
+ import org.springframework.transaction.annotation.Transactional;
+@@ -27,16 +29,7 @@
+     public JdbcCommentDao(JdbcTemplate jdbcTemplate, DataSource dataSource) {
+         this.jdbcTemplate = jdbcTemplate;
+ 
+-        ROW_MAPPER = (rs, rowNum) -> {
+-            Comment comment = new Comment();
+-            comment.setId(rs.getInt("id"));
+-            comment.setProductId(rs.getInt("product_id"));
+-            comment.setAuthor(rs.getString("author"));
+-            comment.setDateTime(rs.getTimestamp("datetime").toLocalDateTime());
+-            comment.setText(rs.getString("text"));
+-            comment.setRating(rs.getInt("rating"));
+-            return comment;
+-        };
++        ROW_MAPPER = BeanPropertyRowMapper.newInstance(Comment.class);
+         commentInsert = new SimpleJdbcInsert(dataSource)
+                 .withTableName("comments")
+                 .usingGeneratedKeyColumns("id");
+@@ -50,12 +43,7 @@
+ 
+     @Override
+     public Comment save(Comment comment) {
+-        Map<String, Object> parameters = new HashMap<>();
+-        parameters.put("product_id", comment.getProductId());
+-        parameters.put("author", comment.getAuthor());
+-        parameters.put("datetime", comment.getDateTime());
+-        parameters.put("text", comment.getText());
+-        parameters.put("rating", comment.getRating());
++        BeanPropertySqlParameterSource parameters = new BeanPropertySqlParameterSource(comment);
+         Number newId = commentInsert.executeAndReturnKey(parameters);
+ 
+         comment.setId(newId.intValue());
+Index: src/main/java/edu/bionic/dao/jdbc/JdbcProductDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/jdbc/JdbcProductDao.java	(revision 0c0a1854752e79442f60d452cd09c227d6fbace9)
++++ src/main/java/edu/bionic/dao/jdbc/JdbcProductDao.java	(revision c1bdcd9aaa174249863122e6171b187744753ae4)
+@@ -6,6 +6,7 @@
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.context.annotation.Primary;
+ import org.springframework.dao.support.DataAccessUtils;
++import org.springframework.jdbc.core.BeanPropertyRowMapper;
+ import org.springframework.jdbc.core.JdbcTemplate;
+ import org.springframework.jdbc.core.RowMapper;
+ import org.springframework.stereotype.Repository;
+@@ -27,17 +28,7 @@
+     public JdbcProductDao(JdbcTemplate jdbcTemplate) {
+         this.jdbcTemplate = jdbcTemplate;
+ 
+-        ROW_MAPPER = (rs, rowNum) -> {
+-            Product product = new Product();
+-            product.setId(rs.getInt("id"));
+-            product.setName(rs.getString("name"));
+-            product.setPrice(rs.getBigDecimal("price"));
+-            product.setColor(Color.values()[rs.getInt("color")]);
+-            product.setCapacity(rs.getInt("capacity"));
+-            product.setDisplay(rs.getString("display"));
+-            product.setDisplay(rs.getString("description"));
+-            return product;
+-        };
++        ROW_MAPPER = BeanPropertyRowMapper.newInstance(Product.class);
+     }
+ 
+ 
+Index: src/main/resources/spring/spring-db.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/spring/spring-db.xml	(revision 0c0a1854752e79442f60d452cd09c227d6fbace9)
++++ src/main/resources/spring/spring-db.xml	(revision c1bdcd9aaa174249863122e6171b187744753ae4)
+@@ -36,6 +36,6 @@
+     </bean>
+ 
+     <!-- enable the configuration of transactional behavior based on annotations -->
+-    <tx:annotation-driven transaction-manager="txManager"/>
++    <tx:annotation-driven transaction-manager="txManager" proxy-target-class="true"/>
+ 
+ </beans>
+\ No newline at end of file

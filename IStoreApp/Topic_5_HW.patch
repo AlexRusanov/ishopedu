@@ -1,0 +1,326 @@
+Index: pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- pom.xml	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
++++ pom.xml	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -36,6 +36,7 @@
+                 <configuration>
+                     <source>${java.version}</source>
+                     <target>${java.version}</target>
++                    <encoding>UTF-8</encoding>
+                 </configuration>
+             </plugin>
+             <plugin>
+Index: src/main/java/edu/bionic/domain/Order.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Order.java	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
++++ src/main/java/edu/bionic/domain/Order.java	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -13,6 +13,10 @@
+     private BigDecimal totalAmount;
+     private List<Product> products;
+ 
++    public Order() {
++        this.products = new ArrayList<>();
++    }
++
+     public Order(LocalDateTime dateTime, BigDecimal totalAmount, List<Product> products) {
+         this.dateTime = dateTime;
+         this.totalAmount = totalAmount;
+Index: src/main/java/edu/bionic/presentation/controller/GlobalControllerAdvice.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/GlobalControllerAdvice.java	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
++++ src/main/java/edu/bionic/presentation/controller/GlobalControllerAdvice.java	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -0,0 +1,14 @@
++package edu.bionic.presentation.controller;
++
++import edu.bionic.domain.Order;
++import org.springframework.web.bind.annotation.ControllerAdvice;
++import org.springframework.web.bind.annotation.ModelAttribute;
++
++@ControllerAdvice
++public class GlobalControllerAdvice {
++
++    @ModelAttribute("basket")
++    public Order createBasket() {
++        return new Order();
++    }
++}
+Index: src/main/java/edu/bionic/presentation/controller/OrderController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/OrderController.java	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
++++ src/main/java/edu/bionic/presentation/controller/OrderController.java	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -0,0 +1,34 @@
++package edu.bionic.presentation.controller;
++
++import edu.bionic.service.OrderService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Controller;
++import org.springframework.ui.Model;
++import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.SessionAttributes;
++
++import java.time.format.DateTimeFormatter;
++
++@Controller
++@SessionAttributes("basket")
++@RequestMapping("orders")
++public class OrderController {
++
++    private DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("d-MM-yyyy HH:mm");
++
++    private OrderService orderService;
++
++    @Autowired
++    public OrderController(OrderService orderService) {
++        this.orderService = orderService;
++    }
++
++    @GetMapping
++    public String showOrders(Model model) {
++        model.addAttribute("orders", orderService.getAll());
++        model.addAttribute("dateTimeFormatter", dateTimeFormatter);
++
++        return "order-list";
++    }
++}
+Index: src/main/java/edu/bionic/presentation/controller/ProductController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/ProductController.java	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
++++ src/main/java/edu/bionic/presentation/controller/ProductController.java	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -44,4 +44,13 @@
+         return "product";
+     }
+ 
++    @PostMapping("{productId}/addToBasket")
++    public String addToBasket(@PathVariable("productId") Integer productId,
++                              @SessionAttribute("basket") Order currentOrder) {
++
++        orderService.addProductToOrder(currentOrder, productId);
++
++        return "redirect:/products/" + productId;
++    }
++
+ }
+Index: src/main/java/edu/bionic/presentation/controller/RootController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/RootController.java	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
++++ src/main/java/edu/bionic/presentation/controller/RootController.java	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -0,0 +1,13 @@
++package edu.bionic.presentation.controller;
++
++import org.springframework.stereotype.Controller;
++import org.springframework.web.bind.annotation.GetMapping;
++
++@Controller
++public class RootController {
++
++    @GetMapping("/")
++    public String showMainPage() {
++        return "index";
++    }
++}
+Index: src/main/java/edu/bionic/service/OrderService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/OrderService.java	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
++++ src/main/java/edu/bionic/service/OrderService.java	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -10,4 +10,6 @@
+     List<Order> getAll();
+ 
+     void createNewOrder(List<Product> products);
++
++    void addProductToOrder(Order order, Integer productId);
+ }
+Index: src/main/java/edu/bionic/service/impl/OrderServiceImpl.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/impl/OrderServiceImpl.java	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
++++ src/main/java/edu/bionic/service/impl/OrderServiceImpl.java	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -4,6 +4,7 @@
+ import edu.bionic.domain.Order;
+ import edu.bionic.domain.Product;
+ import edu.bionic.service.OrderService;
++import edu.bionic.service.ProductService;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.stereotype.Service;
+ 
+@@ -15,10 +16,12 @@
+ public class OrderServiceImpl implements OrderService {
+ 
+     private OrderDao orderDao;
++    private ProductService productService;
+ 
+     @Autowired
+-    public OrderServiceImpl(OrderDao orderDao) {
++    public OrderServiceImpl(OrderDao orderDao, ProductService productService) {
+         this.orderDao = orderDao;
++        this.productService = productService;
+     }
+ 
+     @Override
+@@ -33,4 +36,17 @@
+                 products);
+         orderDao.save(order);
+     }
++
++    @Override
++    public void addProductToOrder(Order order, Integer productId) {
++        Product newProduct = productService.getById(productId);
++        order.addProduct(newProduct);
++        order.setTotalAmount(
++                order.getProducts()
++                        .stream()
++                        .map(Product::getPrice)
++                        .reduce(BigDecimal::add)
++                        .orElse(BigDecimal.ZERO)
++        );
++    }
+ }
+Index: src/main/webapp/WEB-INF/views/index.jsp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/views/index.jsp	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
++++ src/main/webapp/WEB-INF/views/index.jsp	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -0,0 +1,14 @@
++<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
++<%@ page contentType="text/html;charset=UTF-8" language="java" %>
++<html>
++<head>
++    <title>Магазин iShop</title>
++</head>
++<body>
++<h1>Welcome to iShop</h1>
++<ul>
++    <li><a href="<c:url value="/products"/>">Каталог товаров</a></li>
++    <li><a href="<c:url value="/orders"/> ">Предыдущие заказы</a></li>
++</ul>
++</body>
++</html>
+Index: src/main/webapp/WEB-INF/views/order-list.jsp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/views/order-list.jsp	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
++++ src/main/webapp/WEB-INF/views/order-list.jsp	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -0,0 +1,23 @@
++<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
++<%@ page contentType="text/html;charset=UTF-8" language="java" %>
++<html>
++<head>
++    <title>Предыдущие заказы</title>
++</head>
++<body>
++    <h1>Предыдущие заказы</h1>
++    <c:if test="${orders.size() == 0}">
++        Истоиря заказов на данный момент отсутствует
++    </c:if>
++    <c:forEach items="${orders}" var="order">
++        <p>
++            <strong>Дата:</strong> ${order.dateTime.format(dateTimeFormatter)} <br/>
++            <strong>Общая сумма:</strong> ${order.totalAmount} <br/>
++            <strong>Товары:</strong> <br/>
++            <c:forEach items="${order.products}" var="product">
++                ${product.name} <br/>
++            </c:forEach>
++        </p>
++    </c:forEach>
++</body>
++</html>
+Index: src/main/webapp/WEB-INF/views/product.jsp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/views/product.jsp	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
++++ src/main/webapp/WEB-INF/views/product.jsp	(revision b6b71057f7273863333e5ebcc0005c2f957d9a14)
+@@ -5,6 +5,11 @@
+     <title>iShop - ${product.name}</title>
+ </head>
+ <body>
++    <c:if test="${basket.products.size() > 0}">
++        <p><strong><i>Количество товаров в корзине: ${basket.products.size()}.
++            Общая сумма ${basket.totalAmount}</i></strong> </p>
++        <hr/>
++    </c:if>
+     <h2>${product.name}</h2>
+     <h3>Цена: ${product.price} USD</h3>
+     <div>
+@@ -15,6 +20,7 @@
+             Память: ${product.capacity} GB<br/>
+         </p>
+         <form method="post" action="<c:url value="/products/${product.id}/addToBasket"/>">
++            <a href="<c:url value="/products"/>"><button type="button">Вернуться</button></a>
+             <button type="submit">Добавить в корзину</button>
+         </form>
+     </div>
+@@ -41,14 +47,17 @@
+                 <textarea id="comment" name="text" rows="10" cols="30"></textarea>
+             </p>
+             <p>
+-                <label for="rating">Выставить оценку:</label>
+-                <select id="rating" name="rating">
+-                    <option>1</option>
+-                    <option>2</option>
+-                    <option>3</option>
+-                    <option>4</option>
+-                    <option selected>5</option>
+-                </select>
++                <label>Выставить оценку:</label> <br/>
++                <label for="radio1">1</label>
++                <input type="radio" id="radio1" name="rating" value="1">
++                <label for="radio2">2</label>
++                <input type="radio" id="radio2" name="rating" value="2">
++                <label for="radio3">3</label>
++                <input type="radio" id="radio3" name="rating" value="3">
++                <label for="radio4">4</label>
++                <input type="radio" id="radio4" name="rating" value="4">
++                <label for="radio5">5</label>
++                <input type="radio" id="radio5" name="rating" value="5" checked>
+             </p>
+ 
+             <input type="hidden" name="productId" value="${product.id}">
+Index: src/main/webapp/index.html
+===================================================================
+--- src/main/webapp/index.html	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
++++ src/main/webapp/index.html	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
+@@ -1,14 +0,0 @@
+-<!DOCTYPE html>
+-<html lang="en">
+-<head>
+-    <meta charset="UTF-8">
+-    <title>iShop</title>
+-</head>
+-<body>
+-    <h1>Welcome to iShop</h1>
+-    <ul>
+-        <li><a href="/products">Каталог товаров</a></li>
+-        <li><a href="/orders">Предыдущие заказы</a></li>
+-    </ul>
+-</body>
+-</html>
+\ No newline at end of file

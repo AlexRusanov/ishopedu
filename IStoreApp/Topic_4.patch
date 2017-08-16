@@ -1,0 +1,224 @@
+Index: pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- pom.xml	(revision 4bf05f1b722f678adf920abbb146c6d2404fc8b4)
++++ pom.xml	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
+@@ -22,6 +22,7 @@
+         <!-- Web -->
+         <servlet.api.version>3.1.0</servlet.api.version>
+         <jsp.api.version>2.3.1</jsp.api.version>
++        <jstl.version>1.2</jstl.version>
+     </properties>
+ 
+     <build>
+@@ -70,6 +71,12 @@
+             <artifactId>spring-context-support</artifactId>
+             <version>${spring.version}</version>
+         </dependency>
++        <!-- Spring Web support -->
++        <dependency>
++            <groupId>org.springframework</groupId>
++            <artifactId>spring-web</artifactId>
++            <version>${spring.version}</version>
++        </dependency>
+         <!-- Java Servlet API -->
+         <dependency>
+             <groupId>javax.servlet</groupId>
+@@ -84,6 +91,13 @@
+             <version>${jsp.api.version}</version>
+             <scope>provided</scope>
+         </dependency>
++        <!-- JSTL Libraty -->
++        <dependency>
++            <groupId>javax.servlet</groupId>
++            <artifactId>jstl</artifactId>
++            <version>${jstl.version}</version>
++        </dependency>
++
+     </dependencies>
+ 
+ 
+Index: src/main/java/edu/bionic/presentation/servlet/ProductServlet.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/servlet/ProductServlet.java	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
++++ src/main/java/edu/bionic/presentation/servlet/ProductServlet.java	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
+@@ -0,0 +1,49 @@
++package edu.bionic.presentation.servlet;
++
++import edu.bionic.domain.Product;
++import edu.bionic.service.ProductService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.context.ApplicationContext;
++import org.springframework.web.context.support.SpringBeanAutowiringSupport;
++import org.springframework.web.context.support.WebApplicationContextUtils;
++
++import javax.servlet.ServletConfig;
++import javax.servlet.ServletException;
++import javax.servlet.annotation.WebServlet;
++import javax.servlet.http.HttpServlet;
++import javax.servlet.http.HttpServletRequest;
++import javax.servlet.http.HttpServletResponse;
++import java.io.IOException;
++
++@WebServlet("/products")
++public class ProductServlet extends HttpServlet {
++
++    private ProductService productService;
++
++    @Autowired
++    public void setProductService(ProductService productService) {
++        this.productService = productService;
++    }
++
++    @Override
++    public void init() throws ServletException {
++        super.init();
++        SpringBeanAutowiringSupport.processInjectionBasedOnCurrentContext(this);
++
++//        ApplicationContext context = WebApplicationContextUtils.getRequiredWebApplicationContext(this.getServletContext());
++//        productService = context.getBean("productServiceImpl",  ProductService.class);
++    }
++
++    @Override
++    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
++//        productService.getAll().forEach(product -> {
++//            try {
++//                resp.getWriter().println(product.printInfo());
++//            } catch (IOException e) {
++//                e.printStackTrace();
++//            }
++//        });
++        req.setAttribute("products", productService.getAll());
++        req.getRequestDispatcher("/WEB-INF/views/products.jsp").forward(req, resp);
++    }
++}
+Index: src/main/webapp/WEB-INF/views/products.jsp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/views/products.jsp	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
++++ src/main/webapp/WEB-INF/views/products.jsp	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
+@@ -0,0 +1,25 @@
++<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
++<%@ page contentType="text/html;charset=UTF-8" language="java" %>
++<html>
++<head>
++    <title>Каталог товаров</title>
++</head>
++<body>
++    <h1>Каталог товаров iShop</h1>
++    <ul>
++        <%--<%--%>
++            <%--List<Product> products = (List<Product>) request.getAttribute("products");--%>
++            <%--for (Product product : products) {--%>
++        <%--%>--%>
++            <%--<li><%= product.printInfo() %></li>--%>
++        <%--<%--%>
++            <%--};--%>
++        <%--%>--%>
++        <c:forEach items="${products}" var="product">
++            <jsp:useBean id="product" type="edu.bionic.domain.Product"/>
++            <%--<li><c:out value="${product.printInfo()}"/></li>--%>
++            <li>${product.printInfo()}</li>
++        </c:forEach>
++    </ul>
++</body>
++</html>
+Index: src/main/webapp/WEB-INF/web.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/web.xml	(revision 4bf05f1b722f678adf920abbb146c6d2404fc8b4)
++++ src/main/webapp/WEB-INF/web.xml	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
+@@ -4,13 +4,14 @@
+          xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
+          version="3.1">
+ 
+-    <servlet>
+-        <servlet-name>productServlet</servlet-name>
+-        <servlet-class>edu.bionic.presentation.servlet.HelloServlet</servlet-class>
+-    </servlet>
++    <!-- Location of spring config files -->
++    <context-param>
++        <param-name>contextConfigLocation</param-name>
++        <param-value>classpath:spring/spring-app.xml</param-value>
++    </context-param>
+ 
+-    <servlet-mapping>
+-        <servlet-name>productServlet</servlet-name>
+-        <url-pattern>/hello</url-pattern>
+-    </servlet-mapping>
++    <!-- Bootstrap the root application context using ContextLoaderListener -->
++    <listener>
++        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
++    </listener>
+ </web-app>
+\ No newline at end of file
+Index: src/main/webapp/index.html
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/index.html	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
++++ src/main/webapp/index.html	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
+@@ -0,0 +1,14 @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++    <meta charset="UTF-8">
++    <title>iShop</title>
++</head>
++<body>
++    <h1>Welcome to iShop</h1>
++    <ul>
++        <li><a href="/products">Каталог товаров</a></li>
++        <li><a href="/orders">Предыдущие заказы</a></li>
++    </ul>
++</body>
++</html>
+\ No newline at end of file
+Index: src/main/java/edu/bionic/presentation/servlet/HomeServlet.java
+===================================================================
+--- src/main/java/edu/bionic/presentation/servlet/HomeServlet.java	(revision 4bf05f1b722f678adf920abbb146c6d2404fc8b4)
++++ src/main/java/edu/bionic/presentation/servlet/HomeServlet.java	(revision 4bf05f1b722f678adf920abbb146c6d2404fc8b4)
+@@ -1,19 +0,0 @@
+-package edu.bionic.presentation.servlet;
+-
+-import javax.servlet.ServletException;
+-import javax.servlet.annotation.WebServlet;
+-import javax.servlet.http.HttpServlet;
+-import javax.servlet.http.HttpServletRequest;
+-import javax.servlet.http.HttpServletResponse;
+-import java.io.IOException;
+-
+-@WebServlet({"/home", ""})
+-public class HomeServlet extends HttpServlet {
+-
+-    @Override
+-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+-        req.setAttribute("text", "Welcome to Bionic Team");
+-
+-        req.getRequestDispatcher("/example.jsp").forward(req, resp);
+-    }
+-}
+Index: src/main/webapp/example.jsp
+===================================================================
+--- src/main/webapp/example.jsp	(revision 4bf05f1b722f678adf920abbb146c6d2404fc8b4)
++++ src/main/webapp/example.jsp	(revision 4bf05f1b722f678adf920abbb146c6d2404fc8b4)
+@@ -1,9 +0,0 @@
+-<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+-<html>
+-  <head>
+-    <title>Welcome Page</title>
+-  </head>
+-  <body>
+-    <h1>${text}</h1>
+-  </body>
+-</html>

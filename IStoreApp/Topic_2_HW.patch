@@ -1,0 +1,496 @@
+Index: src/main/java/edu/bionic/ConsoleApplication.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/ConsoleApplication.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
++++ src/main/java/edu/bionic/ConsoleApplication.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
+@@ -1,8 +1,12 @@
+ package edu.bionic;
+ 
++import edu.bionic.config.AppConfig;
++import edu.bionic.presentation.console.CommentConsoleController;
+ import edu.bionic.presentation.console.OrderConsoleController;
+ import edu.bionic.presentation.console.ProductConsoleController;
+ import org.springframework.context.ApplicationContext;
++import org.springframework.context.ConfigurableApplicationContext;
++import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+ import org.springframework.context.support.ClassPathXmlApplicationContext;
+ 
+ import java.io.BufferedReader;
+@@ -11,27 +15,37 @@
+ 
+ public class ConsoleApplication {
+ 
+-    private static BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
++    public static BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
+ 
+     private static ProductConsoleController productController;
+     private static OrderConsoleController orderConsoleController;
++    private static CommentConsoleController commentConsoleController;
+ 
+     public static void main(String[] args) throws IOException {
+-        ApplicationContext context =
+-                new ClassPathXmlApplicationContext(new String[]{"spring/spring-app.xml"});
++        ApplicationContext context = loadJavaConfigContext();
+ 
+         productController = context.getBean("productConsoleController", ProductConsoleController.class);
+         orderConsoleController = context.getBean("orderConsoleController", OrderConsoleController.class);
++        commentConsoleController = context.getBean("commentConsoleController", CommentConsoleController.class);
+ 
+         startPage();
+     }
+ 
++    private static ApplicationContext loadXmlContext() {
++        return new ClassPathXmlApplicationContext(new String[]{"spring/spring-app.xml"});
++    }
++
++    private static ApplicationContext loadJavaConfigContext() {
++        return new AnnotationConfigApplicationContext(AppConfig.class);
++    }
++
+     private static void startPage() throws IOException {
+         System.out.println("Добро пожаловать в iStore");
+         System.out.println();
+         System.out.println("Выберите действие:");
+-        System.out.println("1. Купить товары");
+-        System.out.println("2. Просмотреть заказы");
++        System.out.println("1. Посмотреть и купить товары");
++        System.out.println("2. Просмотреть предыдущие заказы");
++        System.out.println("3. Оставить отзыв о товарах");
+         System.out.println("0. Выйти из приложения");
+         switch (consoleReader.readLine()) {
+             case "1":
+@@ -42,6 +56,9 @@
+                 System.out.println("---------------------------------------");
+                 printOrders();
+                 break;
++            case "3":
++                System.out.println("---------------------------------------");
++                leaveCommentPage();
+             case "0":
+                 System.exit(0);
+             default:
+@@ -62,15 +79,53 @@
+             orderConsoleController.saveOrder();
+             startPage();
+         } else {
+-            orderConsoleController.addProductToBasket(enteredNumber);
++            productPage(enteredNumber);
+         }
+         System.out.println("--------------------------------------");
+         byuProducts();
+     }
+ 
++    private static void productPage(int productId) throws IOException {
++        productController.printProductInfo(productId);
++        System.out.println();
++        commentConsoleController.printCommentForProduct(productId);
++        System.out.println();
++        System.out.println("Выберите действие:");
++        System.out.println("1. Купить товар");
++        System.out.println("0. Вернуться");
++
++        int enteredNumber = Integer.parseInt(consoleReader.readLine());
++        if (enteredNumber == 1) {
++            orderConsoleController.addProductToBasket(enteredNumber);
++            byuProducts();
++        } else if (enteredNumber == 0) {
++            byuProducts();
++        }
++        System.out.println("--------------------------------------");
++        productPage(productId);
++    }
++
++
+     private static void printOrders() throws IOException {
+         orderConsoleController.printPreviousOrders();
+         System.out.println("--------------------------------------");
+         startPage();
+     }
++
++    private static void leaveCommentPage() throws IOException {
++        System.out.println("Выберите товар, который хотите оценить:");
++        productController.printAllProducts();
++        System.out.println();
++        System.out.println("0. Вернуться на главную");
++
++        int enteredNumber = Integer.parseInt(consoleReader.readLine());
++        if (enteredNumber == 0) {
++            startPage();
++        } else {
++            commentConsoleController.createNewComment(enteredNumber);
++            System.out.println("Спасибо, ваш отзыв сохранен. Возвращаемся на главную.");
++            System.out.println("--------------------------------------");
++            startPage();
++        }
++    }
+ }
+Index: src/main/java/edu/bionic/config/AppConfig.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/config/AppConfig.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
++++ src/main/java/edu/bionic/config/AppConfig.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
+@@ -1,4 +1,37 @@
+ package edu.bionic.config;
+ 
++import edu.bionic.dao.CommentDao;
++import edu.bionic.dao.OrderDao;
++import edu.bionic.dao.ProductDao;
++import edu.bionic.dao.mock.CommentDaoMock;
++import edu.bionic.dao.mock.OrderDaoMock;
++import edu.bionic.dao.mock.ProductDaoMock;
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.ComponentScan;
++import org.springframework.context.annotation.Configuration;
++
++@Configuration
++@ComponentScan({"edu.bionic.service", "edu.bionic.presentation"})
+ public class AppConfig {
++
++    @Bean
++    public OrderDao orderDaoMock() {
++        OrderDaoMock orderDaoMock = new OrderDaoMock();
++        orderDaoMock.initOrderStorage();
++        return orderDaoMock;
++    }
++
++    @Bean
++    public ProductDao productDaoMock() {
++        ProductDaoMock productDaoMock = new ProductDaoMock();
++        productDaoMock.initProductStorage();;
++        return productDaoMock;
++    }
++
++    @Bean
++    public CommentDao commentDaoMock() {
++        CommentDaoMock commentDaoMock = new CommentDaoMock();
++        commentDaoMock.initCommentStorage();;
++        return commentDaoMock;
++    }
+ }
+Index: src/main/java/edu/bionic/dao/CommentDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/CommentDao.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
++++ src/main/java/edu/bionic/dao/CommentDao.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
+@@ -0,0 +1,11 @@
++package edu.bionic.dao;
++
++import edu.bionic.domain.Comment;
++
++import java.util.List;
++
++public interface CommentDao {
++
++    List<Comment> getByProduct(int productId);
++    void save(Comment comment);
++}
+Index: src/main/java/edu/bionic/dao/mock/CommentDaoMock.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/mock/CommentDaoMock.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
++++ src/main/java/edu/bionic/dao/mock/CommentDaoMock.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
+@@ -0,0 +1,54 @@
++package edu.bionic.dao.mock;
++
++import edu.bionic.dao.CommentDao;
++import edu.bionic.domain.Comment;
++
++import java.time.LocalDateTime;
++import java.time.Month;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.stream.Collectors;
++
++public class CommentDaoMock implements CommentDao {
++
++    private List<Comment> commentStorage;
++
++    @Override
++    public List<Comment> getByProduct(int productId) {
++        return commentStorage
++                .stream()
++                .filter(comment -> comment.getProductId() == productId)
++                .collect(Collectors.toList());
++    }
++
++    @Override
++    public void save(Comment comment) {
++        commentStorage.add(comment);
++    }
++
++    public void initCommentStorage() {
++        commentStorage = new ArrayList<>();
++
++        commentStorage.add(new Comment(
++                1,
++                "Сергей",
++                LocalDateTime.of(2016, Month.DECEMBER, 28, 13, 0),
++                "Отличный девайс. Пользуюсь уже около года. Никаких замечаний",
++                5
++        ));
++        commentStorage.add(new Comment(
++                4,
++                "Анна",
++                LocalDateTime.of(2017, Month.MARCH, 12, 15, 0),
++                "Возникли проблемы на второй месяц использования. Пропадает зук в динамиках",
++                3
++        ));
++        commentStorage.add(new Comment(
++                1,
++                "Инна",
++                LocalDateTime.of(2017, Month.APRIL, 5, 10, 30),
++                "Хоший телефон. Единственный недостаток это цена :(",
++                4
++        ));
++    }
++}
+Index: src/main/java/edu/bionic/domain/Comment.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Comment.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
++++ src/main/java/edu/bionic/domain/Comment.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
+@@ -0,0 +1,65 @@
++package edu.bionic.domain;
++
++import java.time.LocalDateTime;
++
++public class Comment {
++
++    private Integer productId;
++
++    private String author;
++    private LocalDateTime dateTime;
++    private String text;
++    private Integer rating;
++
++    public Comment(Integer productId, String author, LocalDateTime dateTime, String text, Integer rating) {
++        this.productId = productId;
++        this.author = author;
++        this.dateTime = dateTime;
++        this.text = text;
++        this.rating = rating;
++    }
++
++    public Comment() {
++
++    }
++
++    public Integer getProductId() {
++        return productId;
++    }
++
++    public void setProductId(Integer productId) {
++        this.productId = productId;
++    }
++
++    public String getAuthor() {
++        return author;
++    }
++
++    public void setAuthor(String author) {
++        this.author = author;
++    }
++
++    public LocalDateTime getDateTime() {
++        return dateTime;
++    }
++
++    public void setDateTime(LocalDateTime dateTime) {
++        this.dateTime = dateTime;
++    }
++
++    public String getText() {
++        return text;
++    }
++
++    public void setText(String text) {
++        this.text = text;
++    }
++
++    public Integer getRating() {
++        return rating;
++    }
++
++    public void setRating(Integer rating) {
++        this.rating = rating;
++    }
++}
+Index: src/main/java/edu/bionic/presentation/console/CommentConsoleController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/console/CommentConsoleController.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
++++ src/main/java/edu/bionic/presentation/console/CommentConsoleController.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
+@@ -0,0 +1,56 @@
++package edu.bionic.presentation.console;
++
++import edu.bionic.ConsoleApplication;
++import edu.bionic.domain.Comment;
++import edu.bionic.service.CommentService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Controller;
++
++import java.io.IOException;
++import java.util.List;
++
++@Controller
++public class CommentConsoleController {
++
++    private CommentService commentService;
++
++    @Autowired
++    public CommentConsoleController(CommentService commentService1) {
++        this.commentService = commentService1;
++    }
++
++    public void printCommentForProduct(int productId) {
++        List<Comment> comments = commentService.getByProduct(productId);
++
++        comments.forEach(comment -> {
++            System.out.println(String.format(
++                    "%s. %s. Рейтинг - %d\n%s\n",
++                    comment.getAuthor(),
++                    comment.getDateTime().toString(),
++                    comment.getRating(),
++                    comment.getText()));
++        });
++        if (comments.size() == 0) System.out.println("Отзывов пока нет :(");
++    }
++
++    public void createNewComment(int productId) throws IOException {
++        System.out.println("Введите имя:");
++        String name = ConsoleApplication.consoleReader.readLine();
++        System.out.println("Оцените продукт (0-5):");
++        Integer rating = Integer.parseInt(ConsoleApplication.consoleReader.readLine());
++        System.out.println("Оставьте расширенный отзыв:");
++        String text = ConsoleApplication.consoleReader.readLine();
++
++        // validation
++        if (rating > 5) rating = 5;
++        else if (rating < 0) rating = 0;
++
++        Comment newComment = new Comment();
++        newComment.setProductId(productId);
++        newComment.setAuthor(name);
++        newComment.setRating(rating);
++        newComment.setText(text);
++
++        commentService.createNew(newComment);
++    }
++}
+Index: src/main/java/edu/bionic/presentation/console/ProductConsoleController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/console/ProductConsoleController.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
++++ src/main/java/edu/bionic/presentation/console/ProductConsoleController.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
+@@ -1,5 +1,6 @@
+ package edu.bionic.presentation.console;
+ 
++import edu.bionic.domain.Product;
+ import edu.bionic.service.ProductService;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.stereotype.Controller;
+@@ -17,4 +18,14 @@
+     public void printAllProducts() {
+         productService.getAll().forEach(product -> System.out.println(product.printInfo()));
+     }
++
++    public void printProductInfo(int productId) {
++        Product product = productService.getById(productId);
++
++        System.out.println("Наименование: " + product.getName());
++        System.out.println("Цвет: " + product.getColor());
++        System.out.println("Память: " + product.getCapacity());
++        System.out.println("Дисплей: " + product.getDisplay());
++        System.out.println("Цена: " + product.getPrice());
++    }
+ }
+Index: src/main/java/edu/bionic/service/CommentService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/CommentService.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
++++ src/main/java/edu/bionic/service/CommentService.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
+@@ -0,0 +1,12 @@
++package edu.bionic.service;
++
++import edu.bionic.domain.Comment;
++
++import java.util.List;
++
++public interface CommentService {
++
++    List<Comment> getByProduct(int productId);
++    void createNew(Comment comment);
++
++}
+Index: src/main/java/edu/bionic/service/impl/CommentServiceImpl.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/impl/CommentServiceImpl.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
++++ src/main/java/edu/bionic/service/impl/CommentServiceImpl.java	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
+@@ -0,0 +1,33 @@
++package edu.bionic.service.impl;
++
++import edu.bionic.dao.CommentDao;
++import edu.bionic.domain.Comment;
++import edu.bionic.service.CommentService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Controller;
++import org.springframework.stereotype.Service;
++
++import java.time.LocalDateTime;
++import java.util.List;
++
++@Service
++public class CommentServiceImpl implements CommentService {
++
++    private CommentDao commentDao;
++
++    @Autowired
++    public CommentServiceImpl(CommentDao commentDao) {
++        this.commentDao = commentDao;
++    }
++
++    @Override
++    public List<Comment> getByProduct(int productId) {
++        return commentDao.getByProduct(productId);
++    }
++
++    @Override
++    public void createNew(Comment comment) {
++        comment.setDateTime(LocalDateTime.now());
++        commentDao.save(comment);
++    }
++}
+Index: src/main/resources/spring/spring-app.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/spring/spring-app.xml	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
++++ src/main/resources/spring/spring-app.xml	(revision 8d853fa0eb29bbf46f351094fbb68846e830bfde)
+@@ -7,6 +7,7 @@
+ 
+     <bean id="orderDaoMock" class="edu.bionic.dao.mock.OrderDaoMock" init-method="initOrderStorage"/>
+     <bean id="productDaoMock" class="edu.bionic.dao.mock.ProductDaoMock" init-method="initProductStorage"/>
++    <bean id="commentDaoMock" class="edu.bionic.dao.mock.CommentDaoMock" init-method="initCommentStorage"/>
+ 
+     <context:annotation-config/>
+     <context:component-scan base-package="edu.bionic.service"/>

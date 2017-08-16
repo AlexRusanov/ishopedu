@@ -1,0 +1,307 @@
+Index: pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- pom.xml	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
++++ pom.xml	(revision 3af50c17e13e746be5c7590063400a583df0a83d)
+@@ -71,10 +71,10 @@
+             <artifactId>spring-context-support</artifactId>
+             <version>${spring.version}</version>
+         </dependency>
+-        <!-- Spring Web support -->
++        <!-- Spring Web MVC -->
+         <dependency>
+             <groupId>org.springframework</groupId>
+-            <artifactId>spring-web</artifactId>
++            <artifactId>spring-webmvc</artifactId>
+             <version>${spring.version}</version>
+         </dependency>
+         <!-- Java Servlet API -->
+Index: src/main/java/edu/bionic/presentation/controller/ProductController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/ProductController.java	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
++++ src/main/java/edu/bionic/presentation/controller/ProductController.java	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
+@@ -0,0 +1,47 @@
++package edu.bionic.presentation.controller;
++
++import edu.bionic.domain.Order;
++import edu.bionic.service.CommentService;
++import edu.bionic.service.OrderService;
++import edu.bionic.service.ProductService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Controller;
++import org.springframework.ui.Model;
++import org.springframework.web.bind.annotation.*;
++
++import java.time.format.DateTimeFormatter;
++
++@Controller
++@RequestMapping("products")
++@SessionAttributes("basket")
++public class ProductController {
++
++    private DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("d-MM-yyyy HH:mm");
++
++    private ProductService productService;
++    private CommentService commentService;
++    private OrderService orderService;
++
++    @Autowired
++    public ProductController(ProductService productService, CommentService commentService, OrderService orderService) {
++        this.productService = productService;
++        this.commentService = commentService;
++        this.orderService = orderService;
++    }
++
++    @GetMapping
++    public String showProducts(Model model) {
++        model.addAttribute("products",  productService.getAll());
++        return "product-list";
++    }
++
++    @GetMapping("{productId}")
++    public String showProduct(Model model, @PathVariable("productId") Integer productId) {
++        model.addAttribute(productService.getById(productId));
++        model.addAttribute("comments", commentService.getByProduct(productId));
++        model.addAttribute("dateTimeFormatter", dateTimeFormatter);
++
++        return "product";
++    }
++
++}
+Index: src/main/java/edu/bionic/presentation/servlet/ProductServlet.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/servlet/ProductServlet.java	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
++++ src/main/java/edu/bionic/presentation/servlet/ProductServlet.java	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
+@@ -15,7 +15,7 @@
+ import javax.servlet.http.HttpServletResponse;
+ import java.io.IOException;
+ 
+-@WebServlet("/products")
++//@WebServlet("/products")
+ public class ProductServlet extends HttpServlet {
+ 
+     private ProductService productService;
+@@ -44,6 +44,6 @@
+ //            }
+ //        });
+         req.setAttribute("products", productService.getAll());
+-        req.getRequestDispatcher("/WEB-INF/views/products.jsp").forward(req, resp);
++        req.getRequestDispatcher("/WEB-INF/views/product-list.jsp").forward(req, resp);
+     }
+ }
+Index: src/main/resources/spring/spring-app.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/spring/spring-app.xml	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
++++ src/main/resources/spring/spring-app.xml	(revision 3af50c17e13e746be5c7590063400a583df0a83d)
+@@ -11,6 +11,6 @@
+ 
+     <context:annotation-config/>
+     <context:component-scan base-package="edu.bionic.service"/>
+-    <context:component-scan base-package="edu.bionic.presentation"/>
++    <context:component-scan base-package="edu.bionic.presentation.console"/>
+ 
+ </beans>
+\ No newline at end of file
+Index: src/main/resources/spring/spring-mvc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/spring/spring-mvc.xml	(revision 3af50c17e13e746be5c7590063400a583df0a83d)
++++ src/main/resources/spring/spring-mvc.xml	(revision 3af50c17e13e746be5c7590063400a583df0a83d)
+@@ -0,0 +1,17 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<beans xmlns="http://www.springframework.org/schema/beans"
++       xmlns:mvc="http://www.springframework.org/schema/mvc"
++       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++       xmlns:context="http://www.springframework.org/schema/context"
++       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
++        http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
++
++    <mvc:annotation-driven />
++    <context:component-scan base-package="edu.bionic.presentation.controller"/>
++
++    <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
++        <property name="prefix" value="/WEB-INF/views/"/>
++        <property name="suffix" value=".jsp"/>
++    </bean>
++
++</beans>
+\ No newline at end of file
+Index: src/main/webapp/WEB-INF/web.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/web.xml	(revision 0a19ee36449d035f31b341e8ea981d105d55e3fc)
++++ src/main/webapp/WEB-INF/web.xml	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
+@@ -14,4 +14,38 @@
+     <listener>
+         <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+     </listener>
++
++    <!-- Configuring Spring MVC Dispatcher Servlet-->
++    <servlet>
++        <servlet-name>mvc-dispatcher</servlet-name>
++        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
++        <init-param>
++            <param-name>contextConfigLocation</param-name>
++            <param-value>classpath:spring/spring-mvc.xml</param-value>
++        </init-param>
++        <load-on-startup>1</load-on-startup>
++    </servlet>
++    <servlet-mapping>
++        <servlet-name>mvc-dispatcher</servlet-name>
++        <url-pattern>/</url-pattern>
++    </servlet-mapping>
++
++    <!-- Setting encoding filter to accept UTF-8 data from WEB -->
++    <filter>
++        <filter-name>encodingFilter</filter-name>
++        <filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
++        <init-param>
++            <param-name>encoding</param-name>
++            <param-value>UTF-8</param-value>
++        </init-param>
++        <init-param>
++            <param-name>forceEncoding</param-name>
++            <param-value>true</param-value>
++        </init-param>
++    </filter>
++    <filter-mapping>
++        <filter-name>encodingFilter</filter-name>
++        <url-pattern>/*</url-pattern>
++    </filter-mapping>
++
+ </web-app>
+\ No newline at end of file
+Index: src/main/java/edu/bionic/presentation/controller/CommentController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/CommentController.java	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
++++ src/main/java/edu/bionic/presentation/controller/CommentController.java	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
+@@ -0,0 +1,31 @@
++package edu.bionic.presentation.controller;
++
++import edu.bionic.domain.Comment;
++import edu.bionic.service.CommentService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Controller;
++import org.springframework.web.bind.annotation.ModelAttribute;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestMapping;
++
++@Controller
++@RequestMapping("comments")
++public class CommentController {
++
++    private CommentService commentService;
++
++    @Autowired
++    public CommentController(CommentService commentService) {
++        this.commentService = commentService;
++    }
++
++    @PostMapping
++    public String addNewComment(@ModelAttribute Comment comment) {
++        // validation
++        if (comment.getRating() > 5) comment.setRating(5);
++        else if (comment.getRating() < 1) comment.setRating(1);
++
++        commentService.createNew(comment);
++        return "redirect:/products/" + comment.getProductId();
++    }
++}
+Index: src/main/webapp/WEB-INF/views/products.jsp
+===================================================================
+--- src/main/webapp/WEB-INF/views/products.jsp	(revision 3af50c17e13e746be5c7590063400a583df0a83d)
++++ src/main/webapp/WEB-INF/views/product-list.jsp	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
+@@ -18,7 +18,7 @@
+         <c:forEach items="${products}" var="product">
+             <jsp:useBean id="product" type="edu.bionic.domain.Product"/>
+             <%--<li><c:out value="${product.printInfo()}"/></li>--%>
+-            <li>${product.printInfo()}</li>
++            <li><a href="<c:url value="products/${product.id}"/>">${product.printInfo()}</a></li>
+         </c:forEach>
+     </ul>
+ </body>
+Index: src/main/webapp/WEB-INF/views/product.jsp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/views/product.jsp	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
++++ src/main/webapp/WEB-INF/views/product.jsp	(revision b1017c9882127cef319a1f4640a477045b4bed5f)
+@@ -0,0 +1,59 @@
++<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
++<%@ page contentType="text/html;charset=UTF-8" language="java" %>
++<html>
++<head>
++    <title>iShop - ${product.name}</title>
++</head>
++<body>
++    <h2>${product.name}</h2>
++    <h3>Цена: ${product.price} USD</h3>
++    <div>
++        <p>
++            <strong>Характеристики:</strong> <br/>
++            Цвет: ${product.color} <br/>
++            Экран: ${product.display} <br/>
++            Память: ${product.capacity} GB<br/>
++        </p>
++        <form method="post" action="<c:url value="/products/${product.id}/addToBasket"/>">
++            <button type="submit">Добавить в корзину</button>
++        </form>
++    </div>
++    <hr/>
++    <div>
++        <h4>Отзывы:</h4>
++        <c:forEach items="${comments}" var="comment">
++            <p>
++                <i>${comment.dateTime.format(dateTimeFormatter)}</i>
++                <strong>${comment.author}</strong> <br/>
++                ${comment.text} <br/>
++                <u>Оценка: ${comment.rating}</u>
++            </p>
++        </c:forEach>
++        <h4>Оставить свой отзыв</h4>
++        <form method="post" action="<c:url value="/comments"/>" >
++            <p>
++                <label for="name">Имя:</label>
++                <input type="text" id="name" name="author"/>
++            </p>
++            <p>
++                <label for="comment">Комментарий:</label>
++                <br/>
++                <textarea id="comment" name="text" rows="10" cols="30"></textarea>
++            </p>
++            <p>
++                <label for="rating">Выставить оценку:</label>
++                <select id="rating" name="rating">
++                    <option>1</option>
++                    <option>2</option>
++                    <option>3</option>
++                    <option>4</option>
++                    <option selected>5</option>
++                </select>
++            </p>
++
++            <input type="hidden" name="productId" value="${product.id}">
++            <button type="submit">Отправить</button>
++        </form>
++    </div>
++</body>
++</html>

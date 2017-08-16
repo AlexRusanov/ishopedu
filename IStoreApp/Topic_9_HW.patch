@@ -1,0 +1,615 @@
+Index: src/main/java/edu/bionic/dao/ProductDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/ProductDao.java	(revision 3fc2fb9ef169ec7b67b2d8b0d2e7ba25f2fc38ce)
++++ src/main/java/edu/bionic/dao/ProductDao.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -10,4 +10,8 @@
+     List<Product> getAll();
+ 
+     Optional<Product> getById(int productId);
++
++    Product save(Product product);
++
++    boolean delete(int productId);
+ }
+Index: src/main/java/edu/bionic/dao/jdbc/JdbcProductDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/jdbc/JdbcProductDao.java	(revision 3fc2fb9ef169ec7b67b2d8b0d2e7ba25f2fc38ce)
++++ src/main/java/edu/bionic/dao/jdbc/JdbcProductDao.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -9,9 +9,16 @@
+ import org.springframework.jdbc.core.BeanPropertyRowMapper;
+ import org.springframework.jdbc.core.JdbcTemplate;
+ import org.springframework.jdbc.core.RowMapper;
++import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
++import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
++import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
++import org.springframework.jdbc.core.namedparam.SqlParameterSource;
++import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+ import org.springframework.stereotype.Repository;
+ import org.springframework.transaction.annotation.Transactional;
+ 
++import javax.sql.DataSource;
++import java.sql.Types;
+ import java.util.List;
+ import java.util.Optional;
+ 
+@@ -20,15 +27,23 @@
+ @Transactional
+ public class JdbcProductDao implements ProductDao {
+ 
+-    private RowMapper<Product> ROW_MAPPER;
++    private RowMapper<Product> ROW_MAPPER = BeanPropertyRowMapper.newInstance(Product.class);
+ 
+     private JdbcTemplate jdbcTemplate;
++    private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
++    private SimpleJdbcInsert productInsert;
++
+ 
+     @Autowired
+-    public JdbcProductDao(JdbcTemplate jdbcTemplate) {
++    public JdbcProductDao(JdbcTemplate jdbcTemplate,
++                          NamedParameterJdbcTemplate namedParameterJdbcTemplate,
++                          DataSource dataSource) {
+         this.jdbcTemplate = jdbcTemplate;
++        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+ 
+-        ROW_MAPPER = BeanPropertyRowMapper.newInstance(Product.class);
++        productInsert = new SimpleJdbcInsert(dataSource)
++                .withTableName("products")
++                .usingGeneratedKeyColumns("id");
+     }
+ 
+ 
+@@ -45,6 +60,33 @@
+         return Optional.ofNullable(DataAccessUtils.singleResult(product));
+     }
+ 
++    @Override
++    public Product save(Product product) {
++        MapSqlParameterSource parameterSource = new MapSqlParameterSource()
++                .addValue("id", product.getId())
++                .addValue("name", product.getName())
++                .addValue("price", product.getPrice())
++                .addValue("color", product.getColor().ordinal())
++                .addValue("capacity", product.getCapacity())
++                .addValue("display", product.getDisplay())
++                .addValue("description", product.getDescription());
++
++        if (product.getId() == null) {
++            Number id = productInsert.executeAndReturnKey(parameterSource);
++            product.setId(id.intValue());
++        } else {
++            String sql = "UPDATE products SET name=:name, price=:price, color=:color, capacity=:capacity, " +
++                    "display=:display, description=:description WHERE id=:id";
++            namedParameterJdbcTemplate.update(sql, parameterSource);
++        }
++        return product;
++    }
++
++    @Override
++    public boolean delete(int productId) {
++        return jdbcTemplate.update("DELETE FROM products WHERE id=?", productId) != 0;
++    }
++
+     List<Product> getByOrder(int orderId) {
+         String sql = "SELECT * FROM products LEFT JOIN orders_products ON products.id = orders_products.product_id " +
+                 "WHERE orders_products.order_id = ?";
+Index: src/main/java/edu/bionic/dao/mock/ProductDaoMock.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/mock/ProductDaoMock.java	(revision 3fc2fb9ef169ec7b67b2d8b0d2e7ba25f2fc38ce)
++++ src/main/java/edu/bionic/dao/mock/ProductDaoMock.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -24,6 +24,16 @@
+         return productStorage.stream().filter(product -> product.getId() == productId).findAny();
+     }
+ 
++    @Override
++    public Product save(Product product) {
++        return null;
++    }
++
++    @Override
++    public boolean delete(int productId) {
++        return false;
++    }
++
+     public void initProductStorage() {
+         productStorage = new ArrayList<>();
+ 
+Index: src/main/java/edu/bionic/domain/Product.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Product.java	(revision 3fc2fb9ef169ec7b67b2d8b0d2e7ba25f2fc38ce)
++++ src/main/java/edu/bionic/domain/Product.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -1,18 +1,30 @@
+ package edu.bionic.domain;
+ 
++import org.hibernate.validator.constraints.NotBlank;
++
++import javax.validation.constraints.Min;
++import javax.validation.constraints.NotNull;
+ import java.math.BigDecimal;
+ 
+ public class Product {
+ 
+     private Integer id;
++    @NotBlank(message = "Обязательное поле")
+     private String name;
++    @NotNull(message = "Обязательное поле")
++    @Min(value = 0, message = "Цена должна быть больше 0")
+     private BigDecimal price;
++    @NotNull(message = "Обязательное поле")
+     private Color color;
++    @NotNull(message = "Обязательное поле")
++    @Min(value = 0, message = "Память должна быть больше 0")
+     private Integer capacity;
++    @NotBlank(message = "Обязательное поле")
+     private String display;
+     private String description;
+ 
+-    public Product() { }
++    public Product() {
++    }
+ 
+     public Product(Integer id, String name, BigDecimal price, Color color, Integer capacity, String display, String description) {
+         this.id = id;
+Index: src/main/java/edu/bionic/presentation/controller/admin/AdminProductController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/admin/AdminProductController.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
++++ src/main/java/edu/bionic/presentation/controller/admin/AdminProductController.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -0,0 +1,73 @@
++package edu.bionic.presentation.controller.admin;
++
++import edu.bionic.domain.Product;
++import edu.bionic.service.ProductService;
++import org.springframework.stereotype.Controller;
++import org.springframework.ui.Model;
++import org.springframework.validation.BindingResult;
++import org.springframework.web.bind.annotation.*;
++import org.springframework.web.servlet.mvc.support.RedirectAttributes;
++
++import javax.validation.Valid;
++
++@Controller
++@RequestMapping("admin/products")
++public class AdminProductController {
++
++    private ProductService productService;
++
++    public AdminProductController(ProductService productService) {
++        this.productService = productService;
++    }
++
++    @GetMapping
++    public String showProducts(Model model) {
++        model.addAttribute("products",  productService.getAll());
++        return "admin/product-list";
++    }
++
++    @GetMapping("{productId}")
++    public String editProductPage(@PathVariable("productId") Integer productId, Model model) {
++        model.addAttribute("product", productService.getById(productId));
++        return "admin/product-edit";
++    }
++
++    @PostMapping("{productId}")
++    public String editProduct(@Valid @ModelAttribute Product product,
++                              BindingResult bindingResult,
++                              @PathVariable("productId") Integer productId,
++                              RedirectAttributes redirectAttributes) {
++        if  (bindingResult.hasErrors()) {
++            return "admin/product-edit";
++        }
++        product.setId(productId);
++        productService.update(product);
++        redirectAttributes.addFlashAttribute("updateIsSuccessful", true);
++        return "redirect:/admin/products/" + productId;
++    }
++
++    @GetMapping("new")
++    public String newProductPage(Model model) {
++        model.addAttribute("product", new Product());
++        model.addAttribute("isNew", true);
++        return "admin/product-edit";
++    }
++
++    @PostMapping("new")
++    public String editProduct(@Valid @ModelAttribute Product product,
++                              BindingResult bindingResult,
++                              Model model) {
++        if  (bindingResult.hasErrors()) {
++            model.addAttribute("isNew", true);
++            return "admin/product-edit";
++        }
++        Product createdProduct = productService.create(product);
++        return "redirect:/admin/products/" + createdProduct.getId();
++    }
++
++    @PostMapping("{productId}/delete")
++    public String deleteProduct(@PathVariable("productId") Integer productId) {
++        productService.delete(productId);
++        return "redirect:/admin/products/";
++    }
++}
+Index: src/main/java/edu/bionic/service/ProductService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/ProductService.java	(revision 3fc2fb9ef169ec7b67b2d8b0d2e7ba25f2fc38ce)
++++ src/main/java/edu/bionic/service/ProductService.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -9,4 +9,10 @@
+     List<Product> getAll();
+ 
+     Product getById(int productId);
++
++    Product create(Product product);
++
++    void update(Product product);
++
++    void delete(Integer productId);
+ }
+Index: src/main/java/edu/bionic/service/impl/ProductServiceImpl.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/impl/ProductServiceImpl.java	(revision 3fc2fb9ef169ec7b67b2d8b0d2e7ba25f2fc38ce)
++++ src/main/java/edu/bionic/service/impl/ProductServiceImpl.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -34,4 +34,19 @@
+         return productDao.getById(productId).
+                 orElseThrow(() -> new NotFoundException(String.format("Продукт с id=%d не найден", productId)));
+     }
++
++    @Override
++    public Product create(Product product) {
++        return productDao.save(product);
++    }
++
++    @Override
++    public void update(Product product) {
++        productDao.save(product);
++    }
++
++    @Override
++    public void delete(Integer productId) {
++        productDao.delete(productId);
++    }
+ }
+Index: src/main/webapp/WEB-INF/views/admin/product-edit.jsp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/views/admin/product-edit.jsp	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
++++ src/main/webapp/WEB-INF/views/admin/product-edit.jsp	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -0,0 +1,50 @@
++<%@ page import="edu.bionic.domain.Color" %>
++<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
++<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
++<%@ page contentType="text/html;charset=UTF-8" language="java" %>
++<html>
++<head>
++    <title>iShop Админка | Редактирование продукта</title>
++</head>
++<body>
++    <h1>${isNew ? "Новый товар" : "Редактирование товара №".concat(product.id)}</h1>
++    <form:form modelAttribute="product">
++        <form:hidden path="id"/>
++        <p>
++            <label for="name">Наименование</label>
++            <form:input path="name"/>
++            <form:errors path="name" cssStyle="color: red"/>
++        </p>
++        <p>
++            <label for="price">Цена</label>
++            <form:input path="price"/>
++            <form:errors path="price" cssStyle="color: red"/>
++        </p>
++        <p>
++            <label for="color">Цвет</label><br>
++            <form:radiobuttons path="color" items="<%= Color.values()%>"/>
++            <form:errors path="color" cssStyle="color: red"/>
++
++        </p>
++        <p>
++            <label for="capacity">Память, GB</label>
++            <form:input path="capacity"/>
++            <form:errors path="capacity" cssStyle="color: red"/>
++        </p>
++        <p>
++            <label for="display">Экран</label>
++            <form:input path="display"/>
++            <form:errors path="display" cssStyle="color: red"/>
++        </p>
++        <p>
++            <label for="description">Описание</label><br>
++            <form:textarea path="description" rows="10" cols="30"/>
++        </p>
++        <a href="<c:url value="/admin/products"/>"><button type="button">Вернуться</button></a>
++        <button type="submit">Сохранить</button>
++    </form:form>
++    <c:if test="${updateIsSuccessful}">
++        <span style="color: green;">Изменения сохранены</span>
++    </c:if>
++</body>
++</html>
+Index: src/main/webapp/WEB-INF/views/admin/product-list.jsp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/views/admin/product-list.jsp	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
++++ src/main/webapp/WEB-INF/views/admin/product-list.jsp	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -0,0 +1,45 @@
++<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
++<%@ page contentType="text/html;charset=UTF-8" language="java" %>
++<html>
++<head>
++    <title>iShop Админка  | Список товаров</title>
++</head>
++<body>
++    <h1>Таблица товаров магазина</h1>
++    <a href="<c:url value="/admin/products/new"/>">
++        <button type="button">Добавить товар</button>
++    </a>
++    <table border="1" cellpadding="5">
++        <tr>
++            <th>ID</th>
++            <th>Имя</th>
++            <th>Цена</th>
++            <th>Цвет</th>
++            <th>Память</th>
++            <th>Экран</th>
++            <th>Описание</th>
++            <th></th>
++        </tr>
++        <c:forEach items="${products}" var="product">
++            <tr>
++                <td>${product.id}</td>
++                <td>${product.name}</td>
++                <td>${product.price}</td>
++                <td>${product.color}</td>
++                <td>${product.capacity} GB</td>
++                <td>${product.display}</td>
++                <td>${product.description}</td>
++                <td>
++                    <a href="<c:url value="/admin/products/${product.id}"/>">
++                        <button type="submit">Редактировать</button>
++                    </a>
++                    <form method="post"
++                          action="<c:url value="/admin/products/${product.id}/delete"/>">
++                        <button type="submit">Удалить</button>
++                    </form>
++                </td>
++            </tr>
++        </c:forEach>
++    </table>
++</body>
++</html>
+Index: src/test/java/edu/bionic/dao/BaseDaoTest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/java/edu/bionic/dao/BaseDaoTest.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
++++ src/test/java/edu/bionic/dao/BaseDaoTest.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -0,0 +1,16 @@
++package edu.bionic.dao;
++
++import edu.bionic.config.Profiles;
++import org.junit.runner.RunWith;
++import org.springframework.test.context.ActiveProfiles;
++import org.springframework.test.context.ContextConfiguration;
++import org.springframework.test.context.jdbc.Sql;
++import org.springframework.test.context.jdbc.SqlConfig;
++import org.springframework.test.context.junit4.SpringRunner;
++
++@RunWith(SpringRunner.class)
++@ContextConfiguration("classpath:spring/spring-app.xml")
++@ActiveProfiles(Profiles.HSQLDB)
++@Sql(scripts = "classpath:db/fillDB.sql", config = @SqlConfig(encoding = "UTF-8"))
++public abstract class BaseDaoTest {
++}
+Index: src/test/java/edu/bionic/dao/CommentDaoTest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/java/edu/bionic/dao/CommentDaoTest.java	(revision 3fc2fb9ef169ec7b67b2d8b0d2e7ba25f2fc38ce)
++++ src/test/java/edu/bionic/dao/CommentDaoTest.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -1,27 +1,17 @@
+ package edu.bionic.dao;
+ 
+-import edu.bionic.config.Profiles;
+ import edu.bionic.domain.Comment;
+ import org.junit.Assert;
+ import org.junit.Test;
+-import org.junit.runner.RunWith;
+ import org.springframework.beans.factory.annotation.Autowired;
+-import org.springframework.test.context.ActiveProfiles;
+-import org.springframework.test.context.ContextConfiguration;
+-import org.springframework.test.context.jdbc.Sql;
+-import org.springframework.test.context.jdbc.SqlConfig;
+-import org.springframework.test.context.junit4.SpringRunner;
+ 
+ import java.util.List;
+ 
+ import static edu.bionic.testdata.CommentFactory.getCommentsForProduct1;
+ import static edu.bionic.testdata.CommentFactory.getNewCommentForProduct1;
+ 
+-@RunWith(SpringRunner.class)
+-@ContextConfiguration("classpath:spring/spring-app.xml")
+-@ActiveProfiles(Profiles.HSQLDB)
+-@Sql(scripts = "classpath:db/fillDB.sql", config = @SqlConfig(encoding = "UTF-8"))
+-public class CommentDaoTest {
++
++public class CommentDaoTest extends BaseDaoTest {
+ 
+     @Autowired
+     private CommentDao commentDao;
+Index: src/test/java/edu/bionic/dao/OrderDaoTest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/java/edu/bionic/dao/OrderDaoTest.java	(revision 3fc2fb9ef169ec7b67b2d8b0d2e7ba25f2fc38ce)
++++ src/test/java/edu/bionic/dao/OrderDaoTest.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -1,27 +1,16 @@
+ package edu.bionic.dao;
+ 
+-import edu.bionic.config.Profiles;
+ import edu.bionic.domain.Order;
+ import org.junit.Assert;
+ import org.junit.Test;
+-import org.junit.runner.RunWith;
+ import org.springframework.beans.factory.annotation.Autowired;
+-import org.springframework.test.context.ActiveProfiles;
+-import org.springframework.test.context.ContextConfiguration;
+-import org.springframework.test.context.jdbc.Sql;
+-import org.springframework.test.context.jdbc.SqlConfig;
+-import org.springframework.test.context.junit4.SpringRunner;
+ 
+ import java.util.List;
+ 
+ import static edu.bionic.testdata.OrderFactory.getAllOrders;
+ import static edu.bionic.testdata.OrderFactory.getNewOrder;
+ 
+-@RunWith(SpringRunner.class)
+-@ContextConfiguration("classpath:spring/spring-app.xml")
+-@ActiveProfiles(Profiles.HSQLDB)
+-@Sql(scripts = "classpath:db/fillDB.sql", config = @SqlConfig(encoding = "UTF-8"))
+-public class OrderDaoTest {
++public class OrderDaoTest extends BaseDaoTest {
+ 
+     @Autowired
+     private OrderDao orderDao;
+Index: src/test/java/edu/bionic/dao/ProductDaoTest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/java/edu/bionic/dao/ProductDaoTest.java	(revision 3fc2fb9ef169ec7b67b2d8b0d2e7ba25f2fc38ce)
++++ src/test/java/edu/bionic/dao/ProductDaoTest.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -1,25 +1,15 @@
+ package edu.bionic.dao;
+ 
+-import edu.bionic.config.Profiles;
+ import edu.bionic.domain.Product;
+ import edu.bionic.testdata.ProductFactory;
+ import org.junit.Assert;
+ import org.junit.Test;
+-import org.junit.runner.RunWith;
+ import org.springframework.beans.factory.annotation.Autowired;
+-import org.springframework.test.context.ActiveProfiles;
+-import org.springframework.test.context.ContextConfiguration;
+-import org.springframework.test.context.jdbc.Sql;
+-import org.springframework.test.context.jdbc.SqlConfig;
+-import org.springframework.test.context.junit4.SpringRunner;
+ 
+ import java.util.List;
++import java.util.stream.Collectors;
+ 
+-@RunWith(SpringRunner.class)
+-@ContextConfiguration("classpath:spring/spring-app.xml")
+-@ActiveProfiles(Profiles.HSQLDB)
+-@Sql(scripts = "classpath:db/fillDB.sql", config = @SqlConfig(encoding = "UTF-8"))
+-public class ProductDaoTest {
++public class ProductDaoTest extends BaseDaoTest {
+ 
+     @Autowired
+     private ProductDao productDao;
+@@ -40,4 +30,44 @@
+         Assert.assertEquals(expected.toString(), actual.toString());
+     }
+ 
++    @Test
++    public void saveNew() throws Exception {
++        Product newProduct = ProductFactory.newProduct();
++        Product savedProduct = productDao.save(newProduct);
++        newProduct.setId(savedProduct.getId());
++
++        List<Product> expected = ProductFactory.getAllProducts();
++        expected.add(newProduct);
++        List<Product> actual = productDao.getAll();
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void saveUpdate() throws Exception {
++        Product productToUpdate = ProductFactory.getProduct2Updated();
++        Product updatedProduct = productDao.save(productToUpdate);
++        Assert.assertEquals(productToUpdate.toString(), updatedProduct.toString());
++
++        Product updatedProductFromDB = productDao.getById(2).get();
++        Assert.assertEquals(productToUpdate.toString(), updatedProductFromDB.toString());
++    }
++
++    @Test
++    public void delete() throws Exception {
++        boolean isDeleted = productDao.delete(3);
++        Assert.assertEquals(isDeleted, true);
++
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream().filter(product -> product.getId() != 3).collect(Collectors.toList());
++        List<Product> actual = productDao.getAll();
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void deleteNotFound() throws Exception {
++        boolean isDeleted = productDao.delete(1000);
++        Assert.assertEquals(isDeleted, false);
++    }
+ }
+\ No newline at end of file
+Index: src/test/java/edu/bionic/testdata/ProductFactory.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/java/edu/bionic/testdata/ProductFactory.java	(revision 3fc2fb9ef169ec7b67b2d8b0d2e7ba25f2fc38ce)
++++ src/test/java/edu/bionic/testdata/ProductFactory.java	(revision 3877f26972ce5fdde9f56b7446a4508efcc9d696)
+@@ -91,4 +91,28 @@
+                 getProduct6()
+         );
+     }
++
++    public static Product newProduct() {
++        return new Product(
++                null,
++                "iPhone 8",
++                BigDecimal.valueOf(900),
++                Color.WHITE,
++                512,
++                "6,0 inch",
++                null
++        );
++    }
++
++    public static Product getProduct2Updated() {
++        return new Product(
++                2,
++                "iPhone 8",
++                BigDecimal.valueOf(900),
++                Color.BLACK,
++                512,
++                "6,0 inch",
++                null
++        );
++    }
+ }

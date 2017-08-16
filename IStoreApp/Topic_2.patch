@@ -1,0 +1,878 @@
+Index: pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- pom.xml	(revision 60713bbb5f5a911ccf3de6abacf18552481a7c97)
++++ pom.xml	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
+@@ -13,12 +13,13 @@
+ 
+     <properties>
+         <java.version>1.8</java.version>
+-        <!-- Extendedcore library -->
+         <guava.version>22.0</guava.version>
++
++        <spring.version>4.3.9.RELEASE</spring.version>
+     </properties>
+ 
+     <build>
+-        <finalName>mac-shop</finalName>
++        <finalName>iStore</finalName>
+         <defaultGoal>package</defaultGoal>
+         <plugins>
+             <plugin>
+@@ -34,11 +35,25 @@
+     </build>
+ 
+     <dependencies>
++        <!-- Extended core library -->
+         <dependency>
+             <groupId>com.google.guava</groupId>
+             <artifactId>guava</artifactId>
+             <version>${guava.version}</version>
+         </dependency>
++
++        <!-- JSR-330 Inject API -->
++        <dependency>
++            <groupId>javax.inject</groupId>
++            <artifactId>javax.inject</artifactId>
++            <version>1</version>
++        </dependency>
++        <!-- Spring IoC -->
++        <dependency>
++            <groupId>org.springframework</groupId>
++            <artifactId>spring-context-support</artifactId>
++            <version>${spring.version}</version>
++        </dependency>
+     </dependencies>
+ 
+ 
+Index: src/main/java/edu/bionic/ConsoleApplication.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/ConsoleApplication.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
++++ src/main/java/edu/bionic/ConsoleApplication.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
+@@ -0,0 +1,76 @@
++package edu.bionic;
++
++import edu.bionic.presentation.console.OrderConsoleController;
++import edu.bionic.presentation.console.ProductConsoleController;
++import org.springframework.context.ApplicationContext;
++import org.springframework.context.support.ClassPathXmlApplicationContext;
++
++import java.io.BufferedReader;
++import java.io.IOException;
++import java.io.InputStreamReader;
++
++public class ConsoleApplication {
++
++    private static BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
++
++    private static ProductConsoleController productController;
++    private static OrderConsoleController orderConsoleController;
++
++    public static void main(String[] args) throws IOException {
++        ApplicationContext context =
++                new ClassPathXmlApplicationContext(new String[]{"spring/spring-app.xml"});
++
++        productController = context.getBean("productConsoleController", ProductConsoleController.class);
++        orderConsoleController = context.getBean("orderConsoleController", OrderConsoleController.class);
++
++        startPage();
++    }
++
++    private static void startPage() throws IOException {
++        System.out.println("Добро пожаловать в iStore");
++        System.out.println();
++        System.out.println("Выберите действие:");
++        System.out.println("1. Купить товары");
++        System.out.println("2. Просмотреть заказы");
++        System.out.println("0. Выйти из приложения");
++        switch (consoleReader.readLine()) {
++            case "1":
++                System.out.println("---------------------------------------");
++                byuProducts();
++                break;
++            case "2":
++                System.out.println("---------------------------------------");
++                printOrders();
++                break;
++            case "0":
++                System.exit(0);
++            default:
++                startPage();
++        }
++
++    }
++
++    private static void byuProducts() throws IOException {
++        orderConsoleController.printProductsInBasket();
++        System.out.println("Выберите товар из списка");
++        productController.printAllProducts();
++        System.out.println();
++        System.out.println("0. Завершить заказ");
++
++        int enteredNumber = Integer.parseInt(consoleReader.readLine());
++        if (enteredNumber == 0) {
++            orderConsoleController.saveOrder();
++            startPage();
++        } else {
++            orderConsoleController.addProductToBasket(enteredNumber);
++        }
++        System.out.println("--------------------------------------");
++        byuProducts();
++    }
++
++    private static void printOrders() throws IOException {
++        orderConsoleController.printPreviousOrders();
++        System.out.println("--------------------------------------");
++        startPage();
++    }
++}
+Index: src/main/java/edu/bionic/IStoreApplication.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/IStoreApplication.java	(revision 60713bbb5f5a911ccf3de6abacf18552481a7c97)
++++ src/main/java/edu/bionic/IStoreApplication.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
+@@ -1,39 +1,40 @@
+ package edu.bionic;
+ 
+ import com.google.common.collect.ImmutableList;
++import edu.bionic.domain.Product;
+ 
+ import java.util.List;
+ import java.util.stream.Collectors;
+ 
+ public class IStoreApplication {
+ 
+-    private static List<Product> products;
+-
+-    public static void main(String[] args) {
+-        initProducts();
+-
+-        List<Product> sortedProducts = getSortedProducts();
+-        printProducts(sortedProducts);
+-    }
+-
+-    private static void initProducts() {
+-        products = ImmutableList.of(
+-                new Product(1, "iPhone 7", 700),
+-                new Product(2, "iPhone 7 Plus", 800),
+-                new Product(3, "MacBook Pro", 1500)
+-        );
+-    }
+-
+-    private static List<Product> getSortedProducts() {
+-        return products
+-                .stream()
+-                .sorted((product1, product2) -> Double.compare(product2.getPrice(), product1.getPrice()))
+-                .collect(Collectors.toList());
+-    }
+-
+-    private static void printProducts(List<Product> products) {
+-        products.forEach(product -> {
+-            System.out.println(String.format("Product: %s, price - %.2f USD", product.getName(), product.getPrice()));
+-        });
+-    }
++//    private static List<Product> products;
++//
++//    public static void main(String[] args) {
++//        initProducts();
++//
++//        List<Product> sortedProducts = getSortedProducts();
++//        printProducts(sortedProducts);
++//    }
++//
++//    private static void initProducts() {
++//        products = ImmutableList.of(
++//                new Product(1, "iPhone 7", 700),
++//                new Product(2, "iPhone 7 Plus", 800),
++//                new Product(3, "MacBook Pro", 1500)
++//        );
++//    }
++//
++//    private static List<Product> getSortedProducts() {
++//        return products
++//                .stream()
++//                .sorted((product1, product2) -> Double.compare(product2.getPrice(), product1.getPrice()))
++//                .collect(Collectors.toList());
++//    }
++//
++//    private static void printProducts(List<Product> products) {
++//        products.forEach(product -> {
++//            System.out.println(String.format("Product: %s, price - %.2f USD", product.getName(), product.getPrice()));
++//        });
++//    }
+ }
+Index: src/main/java/edu/bionic/dao/OrderDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/OrderDao.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/dao/OrderDao.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,12 @@
++package edu.bionic.dao;
++
++import edu.bionic.domain.Order;
++
++import java.util.List;
++
++public interface OrderDao {
++
++    List<Order> getAll();
++
++    void save(Order order);
++}
+Index: src/main/java/edu/bionic/dao/ProductDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/ProductDao.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/dao/ProductDao.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,13 @@
++package edu.bionic.dao;
++
++import edu.bionic.domain.Product;
++
++import java.util.List;
++import java.util.Optional;
++
++public interface ProductDao {
++
++    List<Product> getAll();
++
++    Optional<Product> getById(int productId);
++}
+Index: src/main/java/edu/bionic/dao/mock/OrderDaoMock.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/mock/OrderDaoMock.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/dao/mock/OrderDaoMock.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,26 @@
++package edu.bionic.dao.mock;
++
++import edu.bionic.dao.OrderDao;
++import edu.bionic.domain.Order;
++
++import java.util.ArrayList;
++import java.util.List;
++
++public class OrderDaoMock implements OrderDao {
++
++    private List<Order> orderStorage;
++
++    @Override
++    public List<Order> getAll() {
++        return new ArrayList<>(orderStorage);
++    }
++
++    @Override
++    public void save(Order order) {
++        orderStorage.add(order);
++    }
++
++    public void initOrderStorage() {
++        orderStorage = new ArrayList<>();
++    }
++}
+Index: src/main/java/edu/bionic/dao/mock/ProductDaoMock.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/mock/ProductDaoMock.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/dao/mock/ProductDaoMock.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,80 @@
++package edu.bionic.dao.mock;
++
++import edu.bionic.dao.ProductDao;
++import edu.bionic.domain.Color;
++import edu.bionic.domain.Product;
++
++import java.math.BigDecimal;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Optional;
++
++public class ProductDaoMock implements ProductDao {
++
++    private List<Product> productStorage;
++
++
++    @Override
++    public List<Product> getAll() {
++        return new ArrayList<>(productStorage);
++    }
++
++    @Override
++    public Optional<Product> getById(int productId) {
++        return productStorage.stream().filter(product -> product.getId() == productId).findAny();
++    }
++
++    public void initProductStorage() {
++        productStorage = new ArrayList<>();
++
++        productStorage.add(new Product(
++                1,
++                "iPhone 7",
++                BigDecimal.valueOf(700),
++                Color.BLACK,
++                64,
++                "4,7 inch"
++        ));
++        productStorage.add(new Product(
++                2,
++                "iPhone 7",
++                BigDecimal.valueOf(700),
++                Color.WHITE,
++                128,
++                "4,7 inch"
++        ));
++        productStorage.add(new Product(
++                3,
++                "iPhone 7",
++                BigDecimal.valueOf(700),
++                Color.GRAY,
++                256,
++                "4,7 inch"
++        ));
++        productStorage.add(new Product(
++                4,
++                "iPhone 7 Plus",
++                BigDecimal.valueOf(800),
++                Color.BLACK,
++                256,
++                "5,5 inch"
++        ));
++        productStorage.add(new Product(
++                5,
++                "iPhone 7 Plus",
++                BigDecimal.valueOf(800),
++                Color.GRAY,
++                64,
++                "5,5 inch"
++        ));
++        productStorage.add(new Product(
++                6,
++                "iPhone 7 Plus",
++                BigDecimal.valueOf(800),
++                Color.WHITE,
++                128,
++                "5,5 inch"
++        ));
++    }
++
++}
+Index: src/main/java/edu/bionic/domain/Color.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Color.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/domain/Color.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,7 @@
++package edu.bionic.domain;
++
++public enum Color {
++    BLACK,
++    WHITE,
++    GRAY
++}
+Index: src/main/java/edu/bionic/domain/Order.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Order.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/domain/Order.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,49 @@
++package edu.bionic.domain;
++
++import com.google.common.collect.ImmutableList;
++import com.google.common.collect.Lists;
++
++import java.math.BigDecimal;
++import java.time.LocalDateTime;
++import java.util.ArrayList;
++import java.util.List;
++
++public class Order {
++    private LocalDateTime dateTime;
++    private BigDecimal totalAmount;
++    private List<Product> products;
++
++    public Order(LocalDateTime dateTime, BigDecimal totalAmount, List<Product> products) {
++        this.dateTime = dateTime;
++        this.totalAmount = totalAmount;
++        this.products = new ArrayList<>(products);
++    }
++
++    public LocalDateTime getDateTime() {
++        return dateTime;
++    }
++
++    public void setDateTime(LocalDateTime dateTime) {
++        this.dateTime = dateTime;
++    }
++
++    public BigDecimal getTotalAmount() {
++        return totalAmount;
++    }
++
++    public void setTotalAmount(BigDecimal totalAmount) {
++        this.totalAmount = totalAmount;
++    }
++
++    public List<Product> getProducts() {
++        return ImmutableList.copyOf(products);
++    }
++
++    public void addProduct(Product product) {
++        products.add(product);
++    }
++
++    public void removeProduct(Product product) {
++        products.remove(product);
++    }
++}
+Index: src/main/java/edu/bionic/domain/Product.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Product.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/domain/Product.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,74 @@
++package edu.bionic.domain;
++
++import java.math.BigDecimal;
++
++public class Product {
++
++    private Integer id;
++    private String name;
++    private BigDecimal price;
++    private Color color;
++    private Integer capacity;
++    private String display;
++
++    public Product(Integer id, String name, BigDecimal price, Color color, Integer capacity, String display) {
++        this.id = id;
++        this.name = name;
++        this.price = price;
++        this.color = color;
++        this.capacity = capacity;
++        this.display = display;
++    }
++
++    public Integer getId() {
++        return id;
++    }
++
++    public void setId(Integer id) {
++        this.id = id;
++    }
++
++    public String getName() {
++        return name;
++    }
++
++    public void setName(String name) {
++        this.name = name;
++    }
++
++    public BigDecimal getPrice() {
++        return price;
++    }
++
++    public void setPrice(BigDecimal price) {
++        this.price = price;
++    }
++
++    public Color getColor() {
++        return color;
++    }
++
++    public void setColor(Color color) {
++        this.color = color;
++    }
++
++    public Integer getCapacity() {
++        return capacity;
++    }
++
++    public void setCapacity(Integer capacity) {
++        this.capacity = capacity;
++    }
++
++    public String getDisplay() {
++        return display;
++    }
++
++    public void setDisplay(String display) {
++        this.display = display;
++    }
++
++    public String printInfo() {
++        return String.format("%d. %s %s %d - %.2f", id, name, color, capacity, price);
++    }
++}
+Index: src/main/java/edu/bionic/presentation/console/ProductConsoleController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/console/ProductConsoleController.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/presentation/console/ProductConsoleController.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,20 @@
++package edu.bionic.presentation.console;
++
++import edu.bionic.service.ProductService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Controller;
++
++@Controller
++public class ProductConsoleController {
++
++    private ProductService productService;
++
++    @Autowired
++    public ProductConsoleController(ProductService productService) {
++        this.productService = productService;
++    }
++
++    public void printAllProducts() {
++        productService.getAll().forEach(product -> System.out.println(product.printInfo()));
++    }
++}
+Index: src/main/java/edu/bionic/service/OrderService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/OrderService.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
++++ src/main/java/edu/bionic/service/OrderService.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
+@@ -0,0 +1,13 @@
++package edu.bionic.service;
++
++import edu.bionic.domain.Order;
++import edu.bionic.domain.Product;
++
++import java.util.List;
++
++public interface OrderService {
++
++    List<Order> getAll();
++
++    void createNewOrder(List<Product> products);
++}
+Index: src/main/java/edu/bionic/service/ProductService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/ProductService.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/service/ProductService.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,12 @@
++package edu.bionic.service;
++
++import edu.bionic.domain.Product;
++
++import java.util.List;
++
++public interface ProductService {
++
++    List<Product> getAll();
++
++    Product getById(int productId);
++}
+Index: src/main/java/edu/bionic/service/impl/OrderServiceImpl.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/impl/OrderServiceImpl.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
++++ src/main/java/edu/bionic/service/impl/OrderServiceImpl.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
+@@ -0,0 +1,36 @@
++package edu.bionic.service.impl;
++
++import edu.bionic.dao.OrderDao;
++import edu.bionic.domain.Order;
++import edu.bionic.domain.Product;
++import edu.bionic.service.OrderService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Service;
++
++import java.math.BigDecimal;
++import java.time.LocalDateTime;
++import java.util.List;
++
++@Service
++public class OrderServiceImpl implements OrderService {
++
++    private OrderDao orderDao;
++
++    @Autowired
++    public OrderServiceImpl(OrderDao orderDao) {
++        this.orderDao = orderDao;
++    }
++
++    @Override
++    public List<Order> getAll() {
++        return orderDao.getAll();
++    }
++
++    @Override
++    public void createNewOrder(List<Product> products) {
++        Order order = new Order(LocalDateTime.now(),
++                products.stream().map(Product::getPrice).reduce(BigDecimal::add).orElse(BigDecimal.ZERO),
++                products);
++        orderDao.save(order);
++    }
++}
+Index: src/main/java/edu/bionic/service/impl/ProductServiceImpl.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/impl/ProductServiceImpl.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/service/impl/ProductServiceImpl.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,37 @@
++package edu.bionic.service.impl;
++
++import edu.bionic.dao.ProductDao;
++import edu.bionic.domain.Product;
++import edu.bionic.service.ProductService;
++import edu.bionic.util.exception.NotFoundException;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Service;
++
++import java.util.Comparator;
++import java.util.List;
++import java.util.stream.Collectors;
++
++@Service
++public class ProductServiceImpl implements ProductService {
++
++    private ProductDao productDao;
++
++    @Autowired
++    public ProductServiceImpl(ProductDao productDao) {
++        this.productDao = productDao;
++    }
++
++    @Override
++    public List<Product> getAll() {
++        return productDao.getAll()
++                .stream()
++                .sorted(Comparator.comparing(Product::getName))
++                .collect(Collectors.toList());
++    }
++
++    @Override
++    public Product getById(int productId) {
++        return productDao.getById(productId).
++                orElseThrow(() -> new NotFoundException(String.format("Product with id=%d was not found", productId)));
++    }
++}
+Index: src/main/java/edu/bionic/util/exception/NotFoundException.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/util/exception/NotFoundException.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/java/edu/bionic/util/exception/NotFoundException.java	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,8 @@
++package edu.bionic.util.exception;
++
++public class NotFoundException extends RuntimeException {
++
++    public NotFoundException(String message) {
++        super(message);
++    }
++}
+Index: src/main/resources/spring/spring-app.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/spring/spring-app.xml	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
++++ src/main/resources/spring/spring-app.xml	(revision a3acf34f5866b35080784b07c4868e10eaecbd76)
+@@ -0,0 +1,15 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<beans xmlns="http://www.springframework.org/schema/beans"
++       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++       xmlns:context="http://www.springframework.org/schema/context"
++       xsi:schemaLocation="http://www.springframework.org/schema/beans
++        http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
++
++    <bean id="orderDaoMock" class="edu.bionic.dao.mock.OrderDaoMock" init-method="initOrderStorage"/>
++    <bean id="productDaoMock" class="edu.bionic.dao.mock.ProductDaoMock" init-method="initProductStorage"/>
++
++    <context:annotation-config/>
++    <context:component-scan base-package="edu.bionic.service"/>
++    <context:component-scan base-package="edu.bionic.presentation"/>
++
++</beans>
+\ No newline at end of file
+Index: src/main/java/edu/bionic/config/AppConfig.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/config/AppConfig.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
++++ src/main/java/edu/bionic/config/AppConfig.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
+@@ -0,0 +1,4 @@
++package edu.bionic.config;
++
++public class AppConfig {
++}
+Index: src/main/java/edu/bionic/presentation/console/OrderConsoleController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/console/OrderConsoleController.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
++++ src/main/java/edu/bionic/presentation/console/OrderConsoleController.java	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
+@@ -0,0 +1,59 @@
++package edu.bionic.presentation.console;
++
++import edu.bionic.domain.Order;
++import edu.bionic.domain.Product;
++import edu.bionic.service.OrderService;
++import edu.bionic.service.ProductService;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Controller;
++
++import java.util.ArrayList;
++import java.util.List;
++
++@Controller
++public class OrderConsoleController {
++
++    private OrderService orderService;
++    private ProductService productService;
++
++    private List<Product> basket = new ArrayList<>();
++
++    @Autowired
++    public OrderConsoleController(OrderService orderService, ProductService productService) {
++        this.orderService = orderService;
++        this.productService = productService;
++    }
++
++    public void addProductToBasket(int productId) {
++        Product selectedProduct = productService.getById(productId);
++        basket.add(selectedProduct);
++    }
++
++    public void printProductsInBasket() {
++        if (!basket.isEmpty()) {
++            System.out.println("В корзине:");
++            basket.forEach(product -> System.out.println(product.printInfo()));
++            System.out.println("");
++        }
++    }
++
++    public void saveOrder() {
++        orderService.createNewOrder(basket);
++        basket = new ArrayList<>();
++    }
++
++    public void printPreviousOrders() {
++        List<Order> orders = orderService.getAll();
++        if (orders.isEmpty()) {
++            System.out.println("Нет ниодного заказа");
++        } else {
++            System.out.println("Предыдущие заказы:");
++            orders.forEach(order -> {
++                System.out.println(order.getDateTime().toString() + ":");
++                order.getProducts().forEach(product -> System.out.println("\t" + product.printInfo()));
++                System.out.println("Общая сумма: " + order.getTotalAmount());
++            });
++            System.out.println();
++        }
++    }
++}
+Index: useful-resourses.md
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- useful-resourses.md	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
++++ useful-resourses.md	(revision d7706e385744d474331d1c8f4b85d4482cbd344a)
+@@ -0,0 +1,22 @@
++## Java Pre Production Course
++
++### Lecture 1
++1. VCS, Git
++   * [Wiki: Система Управления Вериями.](https://ru.wikipedia.org/wiki/%D0%A1%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0_%D1%83%D0%BF%D1%80%D0%B0%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D1%8F_%D0%B2%D0%B5%D1%80%D1%81%D0%B8%D1%8F%D0%BC%D0%B8)
++    [DVCS](https://ru.wikipedia.org/wiki/%D0%A1%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0_%D1%83%D0%BF%D1%80%D0%B0%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D1%8F_%D0%B2%D0%B5%D1%80%D1%81%D0%B8%D1%8F%D0%BC%D0%B8#.D0.A0.D0.B0.D1.81.D0.BF.D1.80.D0.B5.D0.B4.D0.B5.D0.BB.D1.91.D0.BD.D0.BD.D1.8B.D0.B5_.D1.81.D0.B8.D1.81.D1.82.D0.B5.D0.BC.D1.8B_.D1.83.D0.BF.D1.80.D0.B0.D0.B2.D0.BB.D0.B5.D0.BD.D0.B8.D1.8F_.D0.B2.D0.B5.D1.80.D1.81.D0.B8.D1.8F.D0.BC.D0.B8)
++   * [Git. История. Описание возможностей](http://zzet.org/git/learning/undev/coursify/2014/02/09/lection-1-git-course-undev.html)
++   * [Интеративный обучащий курс 1](http://learngitbranching.js.org/)
++   * [Интеративный обучающий курс 2 (англ.)](https://try.github.io/levels/1/challenges/1)
++2. Maven
++   * [Руководство по Maven](http://www.apache-maven.ru/index.html)
++   * [Жизненный цикл сборки проекта (англ.)](http://www.apache-maven.ru/index.html)
++   * [Управление зависимостями (англ.)](http://maven.apache.org/guides/introduction/introduction-to-dependency-mechanism.html)
++   * [Maven Complete Guide (англ.)](http://books.sonatype.com/mvnref-book/reference/index.html)
++### Lecture 2
++   * [Wiki: Слои приложения (англ.)](https://en.wikipedia.org/wiki/Multitier_architecture)
++   * [Wiki: Spring Framework](https://ru.wikipedia.org/wiki/Spring_Framework)
++   * [Этапы инициализации Spring Context](https://habrahabr.ru/post/222579/)
++   * [Документация Spring IoC Framework (англ.)(7-7.6.1; 7.9-7.13)](http://docs.spring.io/spring/docs/current/spring-framework-reference/html/beans.html)
++   * [Book: Spring In Action 4 (рус.\англ.)(Разделы 2-3)](https://www.manning.com/books/spring-in-action-fourth-edition)
++   * [Полная документация всех модулей Spring (англ.\обзорно)](http://docs.spring.io/spring/docs/current/spring-framework-reference/html/beans.html)
++   * [Google Guava Wiki (англ.\обзорно)](https://github.com/google/guava/wiki)
+\ No newline at end of file
+Index: src/main/java/edu/bionic/Product.java
+===================================================================
+--- src/main/java/edu/bionic/Product.java	(revision 60713bbb5f5a911ccf3de6abacf18552481a7c97)
++++ src/main/java/edu/bionic/Product.java	(revision 60713bbb5f5a911ccf3de6abacf18552481a7c97)
+@@ -1,38 +0,0 @@
+-package edu.bionic;
+-
+-public class Product {
+-
+-    private Integer id;
+-    private String name;
+-    private double price;
+-
+-    public Product(Integer id, String name, double price) {
+-        this.id = id;
+-        this.name = name;
+-        this.price = price;
+-    }
+-
+-    public Integer getId() {
+-        return id;
+-    }
+-
+-    public void setId(Integer id) {
+-        this.id = id;
+-    }
+-
+-    public String getName() {
+-        return name;
+-    }
+-
+-    public void setName(String name) {
+-        this.name = name;
+-    }
+-
+-    public double getPrice() {
+-        return price;
+-    }
+-
+-    public void setPrice(double price) {
+-        this.price = price;
+-    }
+-}
