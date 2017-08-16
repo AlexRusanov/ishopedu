@@ -1,0 +1,363 @@
+Index: src/main/java/edu/bionic/domain/Comment.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Comment.java	(revision 1532631640e32c2606e4eec203549c9864c0acf8)
++++ src/main/java/edu/bionic/domain/Comment.java	(revision 56a027deba05326c61e5034e2ea6d74f85e2b0e8)
+@@ -1,14 +1,22 @@
+ package edu.bionic.domain;
+ 
++import org.hibernate.validator.constraints.NotBlank;
++import org.hibernate.validator.constraints.Range;
++
+ import java.time.LocalDateTime;
+ 
+ public class Comment {
+ 
+     private Integer productId;
+ 
++    @NotBlank(message = "Имя не должно быть пустым")
+     private String author;
+     private LocalDateTime dateTime;
++
++    @NotBlank(message = "Комментарий не должен быть пустым")
+     private String text;
++
++    @Range(min = 1, max = 5)
+     private Integer rating;
+ 
+     public Comment(Integer productId, String author, LocalDateTime dateTime, String text, Integer rating) {
+Index: src/main/java/edu/bionic/domain/Order.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Order.java	(revision 1532631640e32c2606e4eec203549c9864c0acf8)
++++ src/main/java/edu/bionic/domain/Order.java	(revision 56a027deba05326c61e5034e2ea6d74f85e2b0e8)
+@@ -65,6 +65,10 @@
+         products.remove(product);
+     }
+ 
++    public void removeProduct(int index) {
++        products.remove(index);
++    }
++
+     public String getName() {
+         return name;
+     }
+Index: src/main/java/edu/bionic/presentation/controller/CommentController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/CommentController.java	(revision 1532631640e32c2606e4eec203549c9864c0acf8)
++++ src/main/java/edu/bionic/presentation/controller/CommentController.java	(revision 56a027deba05326c61e5034e2ea6d74f85e2b0e8)
+@@ -4,9 +4,14 @@
+ import edu.bionic.service.CommentService;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.stereotype.Controller;
++import org.springframework.ui.Model;
++import org.springframework.validation.BindingResult;
+ import org.springframework.web.bind.annotation.ModelAttribute;
+ import org.springframework.web.bind.annotation.PostMapping;
+ import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.servlet.mvc.support.RedirectAttributes;
++
++import javax.validation.Valid;
+ 
+ @Controller
+ @RequestMapping("comments")
+@@ -20,12 +25,17 @@
+     }
+ 
+     @PostMapping
+-    public String addNewComment(@ModelAttribute Comment comment) {
+-        // validation
+-        if (comment.getRating() > 5) comment.setRating(5);
+-        else if (comment.getRating() < 1) comment.setRating(1);
+-
+-        commentService.createNew(comment);
++    public String addNewComment(@Valid @ModelAttribute Comment comment,
++                                BindingResult bindingResult,
++                                RedirectAttributes redirectAttributes,
++                                Model model) {
++        if (bindingResult.hasErrors()) {
++            redirectAttributes.addFlashAttribute("newComment", comment);
++            redirectAttributes.addFlashAttribute(
++                    "org.springframework.validation.BindingResult.newComment", bindingResult);
++        } else {
++            commentService.createNew(comment);
++        }
+         return "redirect:/products/" + comment.getProductId();
+     }
+ }
+Index: src/main/java/edu/bionic/presentation/controller/OrderController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/OrderController.java	(revision 1532631640e32c2606e4eec203549c9864c0acf8)
++++ src/main/java/edu/bionic/presentation/controller/OrderController.java	(revision 56a027deba05326c61e5034e2ea6d74f85e2b0e8)
+@@ -52,6 +52,14 @@
+         return "redirect:/orders/success";
+     }
+ 
++    @PostMapping("newOrder/removeProduct")
++    public String removeItemFromOrder(@SessionAttribute("currentOrder") Order currentOrder,
++                                      @RequestParam("index") Integer index){
++        orderService.removeProductFromOrder(currentOrder, index);
++
++        return "redirect:/orders/newOrder";
++    }
++
+     @GetMapping("success")
+     public String successCreatedOrderPage() {
+         return "order/orderCreated";
+Index: src/main/java/edu/bionic/presentation/controller/ProductController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/ProductController.java	(revision 1532631640e32c2606e4eec203549c9864c0acf8)
++++ src/main/java/edu/bionic/presentation/controller/ProductController.java	(revision 56a027deba05326c61e5034e2ea6d74f85e2b0e8)
+@@ -1,5 +1,6 @@
+ package edu.bionic.presentation.controller;
+ 
++import edu.bionic.domain.Comment;
+ import edu.bionic.domain.Order;
+ import edu.bionic.service.CommentService;
+ import edu.bionic.service.OrderService;
+@@ -36,9 +37,13 @@
+     }
+ 
+     @GetMapping("{productId}")
+-    public String showProduct(Model model, @PathVariable("productId") Integer productId) {
++    public String showProduct(Model model,
++                              @PathVariable("productId") Integer productId) {
+         model.addAttribute(productService.getById(productId));
+         model.addAttribute("comments", commentService.getByProduct(productId));
++        if (!model.containsAttribute("newComment")) {
++            model.addAttribute("newComment", new Comment());
++        }
+         model.addAttribute("dateTimeFormatter", dateTimeFormatter);
+ 
+         return "product/product";
+Index: src/main/java/edu/bionic/service/OrderService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/OrderService.java	(revision 1532631640e32c2606e4eec203549c9864c0acf8)
++++ src/main/java/edu/bionic/service/OrderService.java	(revision 56a027deba05326c61e5034e2ea6d74f85e2b0e8)
+@@ -12,4 +12,6 @@
+     void createNewOrder(Order order);
+ 
+     void addProductToOrder(Order order, Integer productId);
++
++    void removeProductFromOrder(Order order, int indexOfProduct);
+ }
+Index: src/main/java/edu/bionic/service/impl/OrderServiceImpl.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/impl/OrderServiceImpl.java	(revision 1532631640e32c2606e4eec203549c9864c0acf8)
++++ src/main/java/edu/bionic/service/impl/OrderServiceImpl.java	(revision 56a027deba05326c61e5034e2ea6d74f85e2b0e8)
+@@ -47,4 +47,16 @@
+                         .orElse(BigDecimal.ZERO)
+         );
+     }
++
++    @Override
++    public void removeProductFromOrder(Order order, int indexOfProduct) {
++        order.removeProduct(indexOfProduct);
++        order.setTotalAmount(
++                order.getProducts()
++                        .stream()
++                        .map(Product::getPrice)
++                        .reduce(BigDecimal::add)
++                        .orElse(BigDecimal.ZERO)
++        );
++    }
+ }
+Index: src/main/webapp/WEB-INF/views/order/newOrder.jsp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/views/order/newOrder.jsp	(revision 1532631640e32c2606e4eec203549c9864c0acf8)
++++ src/main/webapp/WEB-INF/views/order/newOrder.jsp	(revision 56a027deba05326c61e5034e2ea6d74f85e2b0e8)
+@@ -6,57 +6,64 @@
+     <title>iShop | Оформление заказа</title>
+ </head>
+ <body>
+-    <c:if test="${currentOrder.products.size() == 0}">
+-        На данный момент товаров в корзине нет
+-    </c:if>
++<c:if test="${currentOrder.products.size() == 0}">
++    На данный момент товаров в корзине нет
++</c:if>
+ 
+-    <c:if test="${currentOrder.products.size() > 0}" >
+-        <h1>Товары в корзине</h1>
+-        <table border="1" cellpadding="5">
+-            <tr>
+-                <th>№</th>
+-                <th>Товар</th>
+-                <th>Цена</th>
+-                <th></th>
+-            </tr>
+-            <c:forEach items="${currentOrder.products}" var="product" varStatus="loop">
+-                <tr>
+-                    <td>${loop.index + 1}</td>
+-                    <td>${product.name} ${product.color} ${product.capacity} GB</td>
+-                    <td>${product.price}</td>
+-                    <td><button>x</button></td>
+-                </tr>
+-            </c:forEach>
+-        </table>
+-        <strong>Общая сумма: ${currentOrder.totalAmount} USD</strong>
+-        <p>
+-            <a href="<c:url value="/products"/> "><button>Вернться к покупкам</button></a>
+-        </p>
++<c:if test="${currentOrder.products.size() > 0}">
++    <h1>Товары в корзине</h1>
++    <table border="1" cellpadding="5">
++        <tr>
++            <th>№</th>
++            <th>Товар</th>
++            <th>Цена</th>
++            <th></th>
++        </tr>
++        <c:forEach items="${currentOrder.products}" var="product" varStatus="loop">
++            <tr>
++                <td>${loop.index + 1}</td>
++                <td>${product.name} ${product.color} ${product.capacity} GB</td>
++                <td>${product.price}</td>
++                <td>
++                    <form method="post"
++                          action="<c:url value="/orders/newOrder/removeProduct?index=${loop.index}"/> ">
++                        <button type="submit">x</button>
++                    </form>
++                </td>
++            </tr>
++        </c:forEach>
++    </table>
++    <strong>Общая сумма: ${currentOrder.totalAmount} USD</strong>
++    <p>
++        <a href="<c:url value="/products"/> ">
++            <button>Вернться к покупкам</button>
++        </a>
++    </p>
+ 
+-        <h2>Оформление заказа: </h2>
+-        <form:form modelAttribute="currentOrder">
+-            <p>
+-                <label for="name">Имя:</label>
+-                <form:input path="name"/>
+-                <form:errors path="name" cssStyle="color: red"/>
+-            </p>
+-            <p>
+-                <label for="email">Email:</label>
+-                <form:input path="email"/>
+-                <form:errors path="email" cssStyle="color: red"/>
+-            </p>
+-            <p>
+-                <label for="phone">Телефон:</label>
+-                <form:input path="phone" id="phone"/>
+-            </p>
+-            <p>
+-                <label for="address">Адрес доставки:</label> <br/>
+-                <form:textarea path="address" rows="10" cols="30"/> <br/>
+-                <form:errors path="address" cssStyle="color: red"/>
+-            </p>
+-            <button type="submit">Отправить заказ</button>
+-        </form:form>
+-    </c:if>
++    <h2>Оформление заказа: </h2>
++    <form:form modelAttribute="currentOrder">
++        <p>
++            <label for="name">Имя:</label>
++            <form:input path="name"/>
++            <form:errors path="name" cssStyle="color: red"/>
++        </p>
++        <p>
++            <label for="email">Email:</label>
++            <form:input path="email"/>
++            <form:errors path="email" cssStyle="color: red"/>
++        </p>
++        <p>
++            <label for="phone">Телефон:</label>
++            <form:input path="phone" id="phone"/>
++        </p>
++        <p>
++            <label for="address">Адрес доставки:</label> <br/>
++            <form:textarea path="address" rows="10" cols="30"/> <br/>
++            <form:errors path="address" cssStyle="color: red"/>
++        </p>
++        <button type="submit">Отправить заказ</button>
++    </form:form>
++</c:if>
+ 
+ </body>
+ </html>
+Index: src/main/webapp/WEB-INF/views/product/product.jsp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/views/product/product.jsp	(revision 1532631640e32c2606e4eec203549c9864c0acf8)
++++ src/main/webapp/WEB-INF/views/product/product.jsp	(revision 56a027deba05326c61e5034e2ea6d74f85e2b0e8)
+@@ -1,4 +1,5 @@
+ <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
++<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+ <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+ <html>
+ <head>
+@@ -37,33 +38,35 @@
+             </p>
+         </c:forEach>
+         <h4>Оставить свой отзыв</h4>
+-        <form method="post" action="<c:url value="/comments"/>" >
++        <form:form modelAttribute="newComment" method="post" servletRelativeAction="/comments/" >
+             <p>
+                 <label for="name">Имя:</label>
+-                <input type="text" id="name" name="author"/>
++                <form:input type="text" id="name" path="author"/>
++                <form:errors path="author" cssStyle="color:red;"/>
+             </p>
+             <p>
+                 <label for="comment">Комментарий:</label>
+                 <br/>
+-                <textarea id="comment" name="text" rows="10" cols="30"></textarea>
++                <form:errors path="text" cssStyle="color:red;"/> <br/>
++                <form:textarea id="comment" path="text" rows="10" cols="30"/>
+             </p>
+             <p>
+                 <label>Выставить оценку:</label> <br/>
+                 <label for="radio1">1</label>
+-                <input type="radio" id="radio1" name="rating" value="1">
++                <form:radiobutton id="radio1" path="rating" value="1"/>
+                 <label for="radio2">2</label>
+-                <input type="radio" id="radio2" name="rating" value="2">
++                <form:radiobutton id="radio2" path="rating" value="2"/>
+                 <label for="radio3">3</label>
+-                <input type="radio" id="radio3" name="rating" value="3">
++                <form:radiobutton id="radio3" path="rating" value="3"/>
+                 <label for="radio4">4</label>
+-                <input type="radio" id="radio4" name="rating" value="4">
++                <form:radiobutton id="radio4" path="rating" value="4"/>
+                 <label for="radio5">5</label>
+-                <input type="radio" id="radio5" name="rating" value="5" checked>
++                <form:radiobutton id="radio5" path="rating" value="5" checked="checked"/>
+             </p>
+ 
+-            <input type="hidden" name="productId" value="${product.id}">
++            <form:hidden path="productId" value="${product.id}"/>
+             <button type="submit">Отправить</button>
+-        </form>
++        </form:form>
+     </div>
+ </body>
+ </html>

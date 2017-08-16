@@ -49,11 +49,8 @@
     <%-- Paginator --%>
     <p>
         <c:set var="page" value="${param.page != null ? param.page : 1}"/>
-        <c:set var="query" value="${pageContext.request.queryString != null ?
-            pageContext.request.queryString.replaceFirst('&page=\\\\d+', '') : ''}"/>
-        <c:forEach begin="1" end="${productCount % pageSize == 0 ?
-        productCount / pageSize :
-        productCount / pageSize + 1 }" varStatus="loop">
+        <c:set var="query" value="${pageContext.request.queryString != null ? pageContext.request.queryString.replaceFirst('&page=\\\\d+', '') : ''}"/>
+        <c:forEach begin="1" end="${productCount % pageSize == 0 ? productCount / pageSize : productCount / pageSize + 1 }" varStatus="loop">
             <c:choose>
                 <c:when test="${page == loop.index}">
                     <button type="button" disabled>${loop.index}</button>

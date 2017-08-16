@@ -1,0 +1,488 @@
+Index: src/main/java/edu/bionic/dao/CommentDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/CommentDao.java	(revision 7b1a8c73324da1921ba47331630bfc383678a296)
++++ src/main/java/edu/bionic/dao/CommentDao.java	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
+@@ -7,5 +7,5 @@
+ public interface CommentDao {
+ 
+     List<Comment> getByProduct(int productId);
+-    void save(Comment comment);
++    Comment save(Comment comment);
+ }
+Index: src/main/java/edu/bionic/dao/jdbc/JdbcCommentDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/jdbc/JdbcCommentDao.java	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
++++ src/main/java/edu/bionic/dao/jdbc/JdbcCommentDao.java	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
+@@ -0,0 +1,62 @@
++package edu.bionic.dao.jdbc;
++
++import edu.bionic.dao.CommentDao;
++import edu.bionic.domain.Comment;
++import org.springframework.context.annotation.Primary;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.jdbc.core.RowMapper;
++import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
++import org.springframework.stereotype.Repository;
++
++import javax.sql.DataSource;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++
++@Repository
++@Primary
++public class JdbcCommentDao implements CommentDao {
++
++    private RowMapper<Comment> ROW_MAPPER;
++
++    private JdbcTemplate jdbcTemplate;
++    private SimpleJdbcInsert commentInsert;
++
++    public JdbcCommentDao(JdbcTemplate jdbcTemplate, DataSource dataSource) {
++        this.jdbcTemplate = jdbcTemplate;
++
++        ROW_MAPPER = (rs, rowNum) -> {
++            Comment comment = new Comment();
++            comment.setId(rs.getInt("id"));
++            comment.setProductId(rs.getInt("product_id"));
++            comment.setAuthor(rs.getString("author"));
++            comment.setDateTime(rs.getTimestamp("datetime").toLocalDateTime());
++            comment.setText(rs.getString("text"));
++            comment.setRating(rs.getInt("rating"));
++            return comment;
++        };
++        commentInsert = new SimpleJdbcInsert(dataSource)
++                .withTableName("comments")
++                .usingGeneratedKeyColumns("id");
++    }
++
++    @Override
++    public List<Comment> getByProduct(int productId) {
++        String sql = "SELECT * FROM comments WHERE product_id = ?";
++        return jdbcTemplate.query(sql, new Object[]{productId},ROW_MAPPER);
++    }
++
++    @Override
++    public Comment save(Comment comment) {
++        Map<String, Object> parameters = new HashMap<>();
++        parameters.put("product_id", comment.getProductId());
++        parameters.put("author", comment.getAuthor());
++        parameters.put("datetime", comment.getDateTime());
++        parameters.put("text", comment.getText());
++        parameters.put("rating", comment.getRating());
++        Number newId = commentInsert.executeAndReturnKey(parameters);
++
++        comment.setId(newId.intValue());
++        return comment;
++    }
++}
+Index: src/main/java/edu/bionic/dao/mock/CommentDaoMock.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/mock/CommentDaoMock.java	(revision 7b1a8c73324da1921ba47331630bfc383678a296)
++++ src/main/java/edu/bionic/dao/mock/CommentDaoMock.java	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
+@@ -22,8 +22,9 @@
+     }
+ 
+     @Override
+-    public void save(Comment comment) {
++    public Comment save(Comment comment) {
+         commentStorage.add(comment);
++        return comment;
+     }
+ 
+     public void initCommentStorage() {
+Index: src/main/java/edu/bionic/domain/Comment.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Comment.java	(revision 7b1a8c73324da1921ba47331630bfc383678a296)
++++ src/main/java/edu/bionic/domain/Comment.java	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
+@@ -7,6 +7,7 @@
+ 
+ public class Comment {
+ 
++    private Integer id;
+     private Integer productId;
+ 
+     @NotBlank(message = "Имя не должно быть пустым")
+@@ -31,6 +32,14 @@
+ 
+     }
+ 
++    public Integer getId() {
++        return id;
++    }
++
++    public void setId(Integer id) {
++        this.id = id;
++    }
++
+     public Integer getProductId() {
+         return productId;
+     }
+Index: src/main/resources/db/fillDB.sql
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/db/fillDB.sql	(revision 7b1a8c73324da1921ba47331630bfc383678a296)
++++ src/main/resources/db/fillDB.sql	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
+@@ -1,5 +1,9 @@
++DELETE FROM comments;
++ALTER SEQUENCE comments_id_seq RESTART WITH 1;
++DELETE FROM orders_products;
++DELETE FROM orders;
++ALTER SEQUENCE orders_id_seq RESTART WITH 1;
+ DELETE FROM products;
+-
+ ALTER SEQUENCE products_id_seq RESTART WITH 1;
+ 
+ INSERT INTO products (name, price, color, capacity, display, description)
+@@ -13,4 +17,22 @@
+ INSERT INTO products (name, price, color, capacity, display, description)
+ VALUES ('iPhone 7 Plus', 800, 2, 64, '5,5 inch', NULL);
+ INSERT INTO products (name, price, color, capacity, display, description)
+-VALUES ('iPhone 7 Plus', 800, 1, 128, '5,5 inch', NULL);
+\ No newline at end of file
++VALUES ('iPhone 7 Plus', 800, 1, 128, '5,5 inch', NULL);
++
++INSERT INTO orders (total_amount, datetime, name, email, phone, address)
++VALUES (1500, '2017-06-01 14:00:00', 'Олег', 'oleg@gmail.com', '095664356273', 'ул. Дорогожицкая, 1');
++INSERT INTO orders (total_amount, datetime, name, email, phone, address)
++VALUES (2200, '2017-07-23 18:00:00', 'Аня', 'anya@gmail.com', '095664357685', 'ул. Артема, 30');
++
++INSERT INTO orders_products (order_id, product_id) VALUES (1, 1);
++INSERT INTO orders_products (order_id, product_id) VALUES (1, 5);
++INSERT INTO orders_products (order_id, product_id) VALUES (2, 2);
++INSERT INTO orders_products (order_id, product_id) VALUES (2, 6);
++INSERT INTO orders_products (order_id, product_id) VALUES (2, 3);
++
++INSERT INTO comments (product_id, author, datetime, text, rating)
++VALUES (1, 'Сергей', '2016-12-28 13:00:00', 'Отличный девайс. Пользуюсь уже около года. Никаких замечаний', 5);
++INSERT INTO comments (product_id, author, datetime, text, rating)
++VALUES (4, 'Анна', '2017-03-12 15:00:00', 'Возникли проблемы на второй месяц использования. Пропадает зук в динамиках', 3);
++INSERT INTO comments (product_id, author, datetime, text, rating)
++VALUES (1, 'Инна', '2017-04-05 10:30:00', 'Хоший телефон. Единственный недостаток это цена :(', 4);
+\ No newline at end of file
+Index: src/main/resources/db/hsqldb.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/db/hsqldb.properties	(revision 7b1a8c73324da1921ba47331630bfc383678a296)
++++ src/main/resources/db/hsqldb.properties	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
+@@ -4,6 +4,7 @@
+ database.username=sa
+ database.password=
+ 
++jdbc.driver=org.hsqldb.jdbcDriver
+ jdbc.database.init=true
+ jdbc.initLocation=initDB_hsql.sql
+ 
+Index: src/main/resources/db/initDB_hsql.sql
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/db/initDB_hsql.sql	(revision 7b1a8c73324da1921ba47331630bfc383678a296)
++++ src/main/resources/db/initDB_hsql.sql	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
+@@ -1,3 +1,5 @@
++DROP TABLE IF EXISTS comments;
++DROP SEQUENCE IF EXISTS comments_id_seq;
+ DROP TABLE IF EXISTS orders_products;
+ DROP TABLE IF EXISTS orders;
+ DROP SEQUENCE IF EXISTS orders_id_seq;
+@@ -17,8 +19,9 @@
+ 
+ CREATE SEQUENCE orders_id_seq AS INTEGER START WITH 1;
+ CREATE TABLE orders (
+-  id            INTEGER GENERATED BY DEFAULT AS SEQUENCE products_id_seq PRIMARY KEY,
++  id            INTEGER GENERATED BY DEFAULT AS SEQUENCE orders_id_seq PRIMARY KEY,
+   total_amount  NUMERIC(10,2) NOT NULL,
++  datetime      DATETIME NOT NULL,
+   name          LONGVARCHAR NOT NULL,
+   email         LONGVARCHAR NOT NULL,
+   phone         LONGVARCHAR,
+@@ -30,4 +33,15 @@
+   product_id  INTEGER NOT NULL,
+   FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+   FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+-);
+\ No newline at end of file
++);
++
++CREATE SEQUENCE comments_id_seq AS INTEGER START WITH 1;
++CREATE TABLE comments (
++  id          INTEGER GENERATED BY DEFAULT AS SEQUENCE comments_id_seq PRIMARY KEY,
++  product_id  INTEGER NOT NULL,
++  author      LONGVARCHAR NOT NULL,
++  datetime    TIMESTAMP,
++  text        LONGVARCHAR,
++  rating      INTEGER,
++  FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
++)
+\ No newline at end of file
+Index: src/main/resources/db/initDB_postgres.sql
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/db/initDB_postgres.sql	(revision 7b1a8c73324da1921ba47331630bfc383678a296)
++++ src/main/resources/db/initDB_postgres.sql	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
+@@ -1,3 +1,4 @@
++DROP TABLE IF EXISTS comments;
+ DROP TABLE IF EXISTS orders_products;
+ DROP TABLE IF EXISTS orders;
+ DROP TABLE IF EXISTS products;
+@@ -15,6 +16,7 @@
+ CREATE TABLE orders (
+   id            SERIAL PRIMARY KEY,
+   total_amount  NUMERIC(10,2) NOT NULL,
++  datetime      TIMESTAMP WITH TIME ZONE NOT NULL,
+   name          TEXT NOT NULL,
+   email         TEXT NOT NULL,
+   phone         TEXT,
+@@ -26,4 +28,14 @@
+   product_id  INTEGER NOT NULL,
+   FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+   FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+-);
+\ No newline at end of file
++);
++
++CREATE TABLE comments (
++  id          SERIAL PRIMARY KEY,
++  product_id  INTEGER NOT NULL,
++  author      TEXT NOT NULL,
++  datetime    TIMESTAMP WITH TIME ZONE NOT NULL,
++  text        TEXT,
++  rating      INTEGER,
++  FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
++)
+\ No newline at end of file
+Index: src/main/resources/db/postgres.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/db/postgres.properties	(revision 7b1a8c73324da1921ba47331630bfc383678a296)
++++ src/main/resources/db/postgres.properties	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
+@@ -3,6 +3,7 @@
+ database.username=ishop_dev
+ database.password=ishop_dev
+ 
++jdbc.driver=org.postgresql.Driver
+ jdbc.database.init=true
+ jdbc.initLocation=initDB_postgres.sql
+ 
+Index: src/main/resources/spring/spring-db.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/spring/spring-db.xml	(revision 7b1a8c73324da1921ba47331630bfc383678a296)
++++ src/main/resources/spring/spring-db.xml	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
+@@ -8,7 +8,7 @@
+     <context:property-placeholder location="classpath:db/hsqldb.properties" system-properties-mode="OVERRIDE"/>
+ 
+     <bean id="dataSource" class="org.springframework.jdbc.datasource.SimpleDriverDataSource">
+-        <property name="driverClass" value="org.hsqldb.jdbcDriver"/>
++        <property name="driverClass" value="${jdbc.driver}"/>
+         <property name="url" value="${database.url}"/>
+         <property name="username" value="${database.username}"/>
+         <property name="password" value="${database.password}"/>
+Index: src/main/java/edu/bionic/dao/OrderDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/OrderDao.java	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
++++ src/main/java/edu/bionic/dao/OrderDao.java	(revision 1a1368d61b6fb89f06b2c3f63028e2549cfef383)
+@@ -8,5 +8,5 @@
+ 
+     List<Order> getAll();
+ 
+-    void save(Order order);
++    Order save(Order order);
+ }
+Index: src/main/java/edu/bionic/dao/jdbc/JdbcOrderDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/jdbc/JdbcOrderDao.java	(revision 1a1368d61b6fb89f06b2c3f63028e2549cfef383)
++++ src/main/java/edu/bionic/dao/jdbc/JdbcOrderDao.java	(revision 1a1368d61b6fb89f06b2c3f63028e2549cfef383)
+@@ -0,0 +1,73 @@
++package edu.bionic.dao.jdbc;
++
++import edu.bionic.dao.OrderDao;
++import edu.bionic.domain.Order;
++import org.springframework.context.annotation.Primary;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.jdbc.core.RowMapper;
++import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
++import org.springframework.stereotype.Repository;
++
++import javax.sql.DataSource;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++
++@Repository
++@Primary
++public class JdbcOrderDao implements OrderDao {
++
++    private RowMapper<Order> ROW_MAPPER;
++
++    private JdbcTemplate jdbcTemplate;
++    private SimpleJdbcInsert orderInsert;
++    private JdbcProductDao jdbcProductDao;
++
++    public JdbcOrderDao(JdbcTemplate jdbcTemplate, DataSource dataSource, JdbcProductDao jdbcOrderDao) {
++        this.jdbcTemplate = jdbcTemplate;
++        this.jdbcProductDao = jdbcOrderDao;
++
++        ROW_MAPPER = (rs, rowNum) -> {
++            Order order = new Order();
++            order.setId(rs.getInt("id"));
++            order.setTotalAmount(rs.getBigDecimal("total_amount"));
++            order.setDateTime(rs.getTimestamp("datetime").toLocalDateTime());
++            order.setName(rs.getString("name"));
++            order.setEmail(rs.getString("email"));
++            order.setPhone(rs.getString("phone"));
++            order.setAddress(rs.getString("address"));
++            return order;
++        };
++        orderInsert = new SimpleJdbcInsert(dataSource)
++                .withTableName("orders")
++                .usingGeneratedKeyColumns("id");
++    }
++
++    @Override
++    public List<Order> getAll() {
++        String sql = "SELECT * FROM orders";
++        List<Order> orders = jdbcTemplate.query(sql, ROW_MAPPER);
++        orders.forEach(order -> order.setProducts(jdbcProductDao.getByOrder(order.getId())));
++        return orders;
++    }
++
++    @Override
++    public Order save(Order order) {
++        Map<String, Object> parameters = new HashMap<>();
++        parameters.put("total_amount", order.getTotalAmount());
++        parameters.put("datetime", order.getDateTime());
++        parameters.put("name", order.getName());
++        parameters.put("email", order.getEmail());
++        parameters.put("phone", order.getPhone());
++        parameters.put("address", order.getAddress());
++        Number newId = orderInsert.executeAndReturnKey(parameters);
++        order.setId(newId.intValue());
++
++        String sql = "INSERT INTO orders_products (order_id, product_id) VALUES (?, ?)";
++        order.getProducts().forEach(product -> {
++            this.jdbcTemplate.update(sql, order.getId(), product.getId());
++        });
++
++        return order;
++    }
++}
+Index: src/main/java/edu/bionic/dao/jdbc/JdbcProductDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/jdbc/JdbcProductDao.java	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
++++ src/main/java/edu/bionic/dao/jdbc/JdbcProductDao.java	(revision 1a1368d61b6fb89f06b2c3f63028e2549cfef383)
+@@ -51,4 +51,10 @@
+         List<Product> product = jdbcTemplate.query(sql, new Object[]{productId}, ROW_MAPPER);
+         return Optional.ofNullable(DataAccessUtils.singleResult(product));
+     }
++
++    List<Product> getByOrder(int orderId) {
++        String sql = "SELECT * FROM products LEFT JOIN orders_products ON products.id = orders_products.product_id " +
++                "WHERE orders_products.order_id = ?";
++        return jdbcTemplate.query(sql, new Object[] {orderId},ROW_MAPPER);
++    }
+ }
+Index: src/main/java/edu/bionic/dao/mock/OrderDaoMock.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/mock/OrderDaoMock.java	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
++++ src/main/java/edu/bionic/dao/mock/OrderDaoMock.java	(revision 1a1368d61b6fb89f06b2c3f63028e2549cfef383)
+@@ -16,8 +16,9 @@
+     }
+ 
+     @Override
+-    public void save(Order order) {
++    public Order save(Order order) {
+         orderStorage.add(order);
++        return order;
+     }
+ 
+     public void initOrderStorage() {
+Index: src/main/java/edu/bionic/dao/mock/ProductDaoMock.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/mock/ProductDaoMock.java	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
++++ src/main/java/edu/bionic/dao/mock/ProductDaoMock.java	(revision 1a1368d61b6fb89f06b2c3f63028e2549cfef383)
+@@ -76,5 +76,4 @@
+                 "5,5 inch"
+         ));
+     }
+-
+ }
+Index: src/main/java/edu/bionic/domain/Order.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Order.java	(revision ed3400a43e254b360bc9d756ba766f0bc2e52f71)
++++ src/main/java/edu/bionic/domain/Order.java	(revision 1a1368d61b6fb89f06b2c3f63028e2549cfef383)
+@@ -10,6 +10,7 @@
+ import java.util.List;
+ 
+ public class Order {
++    private Integer id;
+     private LocalDateTime dateTime;
+     private BigDecimal totalAmount;
+     private List<Product> products;
+@@ -37,6 +38,14 @@
+         this.products = new ArrayList<>(products);
+     }
+ 
++    public Integer getId() {
++        return id;
++    }
++
++    public void setId(Integer id) {
++        this.id = id;
++    }
++
+     public LocalDateTime getDateTime() {
+         return dateTime;
+     }
+@@ -57,6 +66,10 @@
+         return ImmutableList.copyOf(products);
+     }
+ 
++    public void setProducts(List<Product> products) {
++        this.products = products;
++    }
++
+     public void addProduct(Product product) {
+         products.add(product);
+     }
