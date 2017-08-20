@@ -2,6 +2,7 @@ package edu.bionic.presentation.console;
 
 import edu.bionic.ConsoleApplication;
 import edu.bionic.domain.Comment;
+import edu.bionic.domain.Product;
 import edu.bionic.service.CommentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -46,7 +47,7 @@ public class CommentConsoleController {
         else if (rating < 0) rating = 0;
 
         Comment newComment = new Comment();
-        newComment.setProductId(productId);
+        newComment.setProduct(new Product(productId));
         newComment.setAuthor(name);
         newComment.setRating(rating);
         newComment.setText(text);

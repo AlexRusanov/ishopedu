@@ -63,3 +63,9 @@
    * [Unit тестирование с JUnit](http://devcolibri.com/864)
    * [Создание Profiles в Spring Context](http://docs.spring.io/spring/docs/current/spring-framework-reference/html/beans.html#beans-environment)
    * [Описание Spring TestContext Framework (англ.\обзорно)](http://docs.spring.io/spring/docs/current/spring-framework-reference/html/integration-testing.html#testcontext-framework)
+### Topic 11 - ORM Frameworks, JPA, Hibernate
+   * [Wiki: Описание ORM](https://ru.wikipedia.org/wiki/ORM)
+   * [Wiki: Описание Hibernate](https://ru.wikipedia.org/wiki/Hibernate_(%D0%B1%D0%B8%D0%B1%D0%BB%D0%B8%D0%BE%D1%82%D0%B5%D0%BA%D0%B0))
+   * [JPA определение сущностей (англ.)](http://docs.jboss.org/hibernate/entitymanager/3.6/reference/en/html/architecture.html#d0e61)
+   * [JPA документация. Раздел 5. (англ.)](https://en.wikibooks.org/wiki/Java_Persistence)
+   * [Подключение JPA провайдера в Spring](http://docs.spring.io/spring/docs/current/spring-framework-reference/html/orm.html#orm-jpa-setup-lcemfb)

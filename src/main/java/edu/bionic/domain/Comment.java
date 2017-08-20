@@ -3,12 +3,21 @@ package edu.bionic.domain;
 import org.hibernate.validator.constraints.NotBlank;
 import org.hibernate.validator.constraints.Range;
 
+import javax.persistence.*;
 import java.time.LocalDateTime;
 
+@Entity
+@Table(name = "comments")
 public class Comment {
 
+    @Id
+    @Access(AccessType.PROPERTY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    private Integer productId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private Product product;
 
     @NotBlank(message = "Имя не должно быть пустым")
     private String author;
@@ -20,17 +29,18 @@ public class Comment {
     @Range(min = 1, max = 5)
     private Integer rating;
 
-    public Comment(Integer id, Integer productId, String author, LocalDateTime dateTime, String text, Integer rating) {
+    public Comment(Integer id, Product product, String author, LocalDateTime dateTime, String text, Integer rating) {
         this.id = id;
-        this.productId = productId;
+        this.product = product;
         this.author = author;
         this.dateTime = dateTime;
         this.text = text;
         this.rating = rating;
     }
 
-    public Comment() {
 
+    public Comment() {
+        this.product = new Product();
     }
 
     @Override
@@ -41,7 +51,7 @@ public class Comment {
         Comment comment = (Comment) o;
 
         if (id != null ? !id.equals(comment.id) : comment.id != null) return false;
-        if (productId != null ? !productId.equals(comment.productId) : comment.productId != null) return false;
+        if (product != null ? !product.getId().equals(comment.product.getId()) : comment.product != null) return false;
         if (author != null ? !author.equals(comment.author) : comment.author != null) return false;
         return dateTime != null ? dateTime.equals(comment.dateTime) : comment.dateTime == null;
     }
@@ -49,7 +59,7 @@ public class Comment {
     @Override
     public int hashCode() {
         int result = id != null ? id.hashCode() : 0;
-        result = 31 * result + (productId != null ? productId.hashCode() : 0);
+        result = 31 * result + (product.getId() != null ? product.getId().hashCode() : 0);
         result = 31 * result + (author != null ? author.hashCode() : 0);
         result = 31 * result + (dateTime != null ? dateTime.hashCode() : 0);
         return result;
@@ -59,7 +69,7 @@ public class Comment {
     public String toString() {
         return "Comment{" +
                 "id=" + id +
-                ", productId=" + productId +
+                ", product=" + product.getId() +
                 ", author='" + author + '\'' +
                 ", dateTime=" + dateTime +
                 ", text='" + text + '\'' +
@@ -75,12 +85,12 @@ public class Comment {
         this.id = id;
     }
 
-    public Integer getProductId() {
-        return productId;
+    public Product getProduct() {
+        return product;
     }
 
-    public void setProductId(Integer productId) {
-        this.productId = productId;
+    public void setProduct(Product product) {
+        this.product = product;
     }
 
     public String getAuthor() {

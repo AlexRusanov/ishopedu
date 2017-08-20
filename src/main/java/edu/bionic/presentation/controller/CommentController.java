@@ -36,6 +36,6 @@ public class CommentController {
         } else {
             commentService.createNew(comment);
         }
-        return "redirect:/products/" + comment.getProductId();
+        return "redirect:/products/" + comment.getProduct().getId();
     }
 }

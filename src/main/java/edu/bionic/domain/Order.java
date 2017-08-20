@@ -1,18 +1,32 @@
 package edu.bionic.domain;
 
 import com.google.common.collect.ImmutableList;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import org.hibernate.validator.constraints.Email;
 import org.hibernate.validator.constraints.NotBlank;
 
+import javax.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@Entity
+@Table(name = "orders")
 public class Order {
+
+    @Id
+    @Access(AccessType.PROPERTY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private LocalDateTime dateTime;
+    @Column(name = "total_amount")
     private BigDecimal totalAmount;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "orders_products",
+            joinColumns = @JoinColumn(name = "order_id"),
+            inverseJoinColumns = @JoinColumn(name = "product_id"))
     private List<Product> products;
 
     @NotBlank(message = "Имя не должно быть пустым")

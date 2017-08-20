@@ -64,7 +64,7 @@
                 <form:radiobutton id="radio5" path="rating" value="5" checked="checked"/>
             </p>
 
-            <form:hidden path="productId" value="${product.id}"/>
+            <form:hidden path="product.id" value="${product.id}"/>
             <button type="submit">Отправить</button>
         </form:form>
     </div>

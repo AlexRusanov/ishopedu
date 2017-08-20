@@ -2,12 +2,18 @@ package edu.bionic.domain;
 
 import org.hibernate.validator.constraints.NotBlank;
 
+import javax.persistence.*;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
+@Entity
+@Table(name = "products")
 public class Product {
 
+    @Id
+    @Access(AccessType.PROPERTY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     @NotBlank(message = "Обязательное поле")
     private String name;
@@ -15,6 +21,7 @@ public class Product {
     @Min(value = 0, message = "Цена должна быть больше 0")
     private BigDecimal price;
     @NotNull(message = "Обязательное поле")
+    @Enumerated(EnumType.ORDINAL)
     private Color color;
     @NotNull(message = "Обязательное поле")
     @Min(value = 0, message = "Память должна быть больше 0")
@@ -24,6 +31,10 @@ public class Product {
     private String description;
 
     public Product() {
+    }
+
+    public Product(Integer id) {
+        this.id = id;
     }
 
     public Product(Integer id, String name, BigDecimal price, Color color, Integer capacity, String display, String description) {
