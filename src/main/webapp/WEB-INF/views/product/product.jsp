@@ -6,6 +6,7 @@
     <title>iShop | ${product.name}</title>
 </head>
 <body>
+<jsp:include page="../components/header.jsp"/>
     <h2>${product.name}</h2>
     <h3>Цена: ${product.price} USD</h3>
     <div>
@@ -15,10 +16,10 @@
             Экран: ${product.display} <br/>
             Память: ${product.capacity} GB<br/>
         </p>
-        <form method="post" action="<c:url value="/products/${product.id}/addToBasket"/>">
+        <form:form method="post" servletRelativeAction="/products/${product.id}/addToBasket">
             <a href="<c:url value="/products"/>"><button type="button">Вернуться</button></a>
             <button type="submit">Добавить в корзину</button>
-        </form>
+        </form:form>
     </div>
     <hr/>
     <c:if test="${currentOrder.products.size() > 0}">

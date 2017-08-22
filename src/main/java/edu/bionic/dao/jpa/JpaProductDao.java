@@ -2,12 +2,15 @@ package edu.bionic.dao.jpa;
 
 import edu.bionic.dao.ProductDao;
 import edu.bionic.domain.Product;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
+import javax.persistence.TypedQuery;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -27,12 +30,36 @@ public class JpaProductDao implements ProductDao {
 
     @Override
     public List<Product> getAllSortedByName(String name, BigDecimal min, BigDecimal max, boolean desc, int offset, int limit) {
-        return null;
+        TypedQuery<Product> query = this.entityManager.createQuery("SELECT p FROM Product p " +
+                "WHERE p.name LIKE :name " +
+                "AND (:min is NULL OR p.price >= :min) " +
+                "AND (:max is NULL OR p.price <= :max) " +
+                "ORDER BY p.name " + (desc ? "DESC " : "ASC "), Product.class);
+
+        query.setParameter("name", StringUtils.isEmpty(name) ? "%" : "%" + name + "%");
+        query.setParameter("min", min);
+        query.setParameter("max", max);
+        query.setFirstResult(offset);
+        query.setMaxResults(limit);
+
+        return query.getResultList();
     }
 
     @Override
     public List<Product> getAllSortedByPrice(String name, BigDecimal min, BigDecimal max, boolean desc, int offset, int limit) {
-        return null;
+        TypedQuery<Product> query = this.entityManager.createQuery("SELECT p FROM Product p " +
+                "WHERE p.name LIKE :name " +
+                "AND (:min is NULL OR p.price >= :min) " +
+                "AND (:max is NULL OR p.price <= :max) " +
+                "ORDER BY p.price " + (desc ? "DESC " : "ASC "), Product.class);
+
+        query.setParameter("name", StringUtils.isEmpty(name) ? "%" : "%" + name + "%");
+        query.setParameter("min", min);
+        query.setParameter("max", max);
+        query.setFirstResult(offset);
+        query.setMaxResults(limit);
+
+        return query.getResultList();
     }
 
     @Override

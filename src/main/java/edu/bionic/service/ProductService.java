@@ -1,7 +1,7 @@
 package edu.bionic.service;
 
 import edu.bionic.domain.Product;
-import edu.bionic.domain.ProductSort;
+import edu.bionic.dto.ProductSort;
 
 import java.math.BigDecimal;
 import java.util.List;

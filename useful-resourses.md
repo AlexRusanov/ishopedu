@@ -69,3 +69,17 @@
    * [JPA определение сущностей (англ.)](http://docs.jboss.org/hibernate/entitymanager/3.6/reference/en/html/architecture.html#d0e61)
    * [JPA документация. Раздел 5. (англ.)](https://en.wikibooks.org/wiki/Java_Persistence)
    * [Подключение JPA провайдера в Spring](http://docs.spring.io/spring/docs/current/spring-framework-reference/html/orm.html#orm-jpa-setup-lcemfb)
+### Topic 12 - Spring Security
+   * [Краткий обзор Spring Security](https://habrahabr.ru/post/203318/)
+   * [Xml настройка Spring Security (англ.)](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/index.html#ns-config)
+   * [Настройка PasswordEncoder (англ.)](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/index.html#core-services-password-encoding)
+   * [Tэг authorize в Security Spring Tag Library (англ.)](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/index.html#taglibs-authorize)
+   * [Method Security (англ.)](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/index.html#ns-method-security)
+   * [Документация Spring Security (англ.\обзорно)](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/index.html)
+### Topic 12 - Spring Security
+   * [Краткий обзор Spring Security](https://habrahabr.ru/post/203318/)
+   * [Xml настройка Spring Security (англ.)](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/index.html#ns-config)
+   * [Настройка PasswordEncoder (англ.)](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/index.html#core-services-password-encoding)
+   * [Tэг authorize в Security Spring Tag Library (англ.)](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/index.html#taglibs-authorize)
+   * [Method Security (англ.)](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/index.html#ns-method-security)
+   * [Документация Spring Security (англ.\обзорно)](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/index.html)

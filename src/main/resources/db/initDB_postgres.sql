@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS orders_products;
 DROP TABLE IF EXISTS orders;
@@ -38,4 +39,12 @@ CREATE TABLE comments (
   text        TEXT,
   rating      INTEGER,
   FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+);
+
+CREATE TABLE users (
+  id          SERIAL PRIMARY KEY,
+  email       TEXT NOT NULL UNIQUE,
+  password    TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  role        INTEGER NOT NULL
 );

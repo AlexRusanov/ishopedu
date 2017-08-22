@@ -1,0 +1,863 @@
+Index: src/main/java/edu/bionic/dao/UserDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/UserDao.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
++++ src/main/java/edu/bionic/dao/UserDao.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -0,0 +1,17 @@
++package edu.bionic.dao;
++
++import edu.bionic.domain.User;
++
++import java.util.List;
++import java.util.Optional;
++
++public interface UserDao {
++
++    User save(User user);
++
++    List<User> getAll();
++
++    Optional<User> getById(int userId);
++
++    Optional<User> getByEmail(String email);
++}
+Index: src/main/java/edu/bionic/dao/jdbc/JdbcUserDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/jdbc/JdbcUserDao.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
++++ src/main/java/edu/bionic/dao/jdbc/JdbcUserDao.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -0,0 +1,78 @@
++package edu.bionic.dao.jdbc;
++
++import edu.bionic.dao.UserDao;
++import edu.bionic.domain.User;
++import org.springframework.dao.support.DataAccessUtils;
++import org.springframework.jdbc.core.BeanPropertyRowMapper;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.jdbc.core.RowMapper;
++import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
++import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
++import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
++import org.springframework.stereotype.Repository;
++
++import javax.sql.DataSource;
++import java.util.List;
++import java.util.Optional;
++
++@Repository
++public class JdbcUserDao implements UserDao {
++
++    private RowMapper<User> ROW_MAPPER = BeanPropertyRowMapper.newInstance(User.class);
++
++    private JdbcTemplate jdbcTemplate;
++    private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
++    private SimpleJdbcInsert productInsert;
++
++
++    public JdbcUserDao(JdbcTemplate jdbcTemplate,
++                       NamedParameterJdbcTemplate namedParameterJdbcTemplate,
++                       DataSource dataSource) {
++        this.jdbcTemplate = jdbcTemplate;
++        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
++
++        productInsert = new SimpleJdbcInsert(dataSource)
++                .withTableName("users")
++                .usingGeneratedKeyColumns("id");
++    }
++
++    @Override
++    public User save(User user) {
++        MapSqlParameterSource parameterSource = new MapSqlParameterSource()
++                .addValue("id", user.getId())
++                .addValue("email", user.getEmail())
++                .addValue("password", user.getPassword())
++                .addValue("name", user.getName())
++                .addValue("role", user.getRole().ordinal());
++
++        if (user.getId() == null) {
++            Number id = productInsert.executeAndReturnKey(parameterSource);
++            user.setId(id.intValue());
++        } else {
++            String sql = "UPDATE users SET email=:email, password=:password, name=:name, role=:role " +
++                    "WHERE id=:id";
++            namedParameterJdbcTemplate.update(sql, parameterSource);
++        }
++        return user;
++    }
++
++    @Override
++    public List<User> getAll() {
++        String sql = "SELECT * FROM users";
++        return jdbcTemplate.query(sql, ROW_MAPPER);
++    }
++
++    @Override
++    public Optional<User> getById(int userId) {
++        String sql = "SELECT * FROM users WHERE id = ?";
++        List<User> product = jdbcTemplate.query(sql, new Object[]{userId}, ROW_MAPPER);
++        return Optional.ofNullable(DataAccessUtils.singleResult(product));
++    }
++
++    @Override
++    public Optional<User> getByEmail(String email) {
++        String sql = "SELECT * FROM users WHERE email = ?";
++        List<User> product = jdbcTemplate.query(sql, new Object[]{email}, ROW_MAPPER);
++        return Optional.ofNullable(DataAccessUtils.singleResult(product));
++    }
++}
+Index: src/main/java/edu/bionic/dao/jpa/JpaProductDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/jpa/JpaProductDao.java	(revision 65e0ba9c76cc9252c4ba48763cecb6ae73564b0e)
++++ src/main/java/edu/bionic/dao/jpa/JpaProductDao.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -4,10 +4,12 @@
+ import edu.bionic.domain.Product;
+ import org.springframework.stereotype.Repository;
+ import org.springframework.transaction.annotation.Transactional;
++import org.springframework.util.StringUtils;
+ 
+ import javax.persistence.EntityManager;
+ import javax.persistence.PersistenceContext;
+ import javax.persistence.Query;
++import javax.persistence.TypedQuery;
+ import java.math.BigDecimal;
+ import java.util.List;
+ import java.util.Optional;
+@@ -27,12 +29,36 @@
+ 
+     @Override
+     public List<Product> getAllSortedByName(String name, BigDecimal min, BigDecimal max, boolean desc, int offset, int limit) {
+-        return null;
++        TypedQuery<Product> query = this.entityManager.createQuery("SELECT p FROM Product p " +
++                "WHERE p.name LIKE :name " +
++                "AND (:min is NULL OR p.price >= :min) " +
++                "AND (:max is NULL OR p.price <= :max) " +
++                "ORDER BY p.name " + (desc ? "DESC " : "ASC "), Product.class);
++
++        query.setParameter("name", StringUtils.isEmpty(name) ? "%" : "%" + name + "%");
++        query.setParameter("min", min);
++        query.setParameter("max", max);
++        query.setFirstResult(offset);
++        query.setMaxResults(limit);
++
++        return query.getResultList();
+     }
+ 
+     @Override
+     public List<Product> getAllSortedByPrice(String name, BigDecimal min, BigDecimal max, boolean desc, int offset, int limit) {
+-        return null;
++        TypedQuery<Product> query = this.entityManager.createQuery("SELECT p FROM Product p " +
++                "WHERE p.name LIKE :name " +
++                "AND (:min is NULL OR p.price >= :min) " +
++                "AND (:max is NULL OR p.price <= :max) " +
++                "ORDER BY p.price " + (desc ? "DESC " : "ASC "), Product.class);
++
++        query.setParameter("name", StringUtils.isEmpty(name) ? "%" : "%" + name + "%");
++        query.setParameter("min", min);
++        query.setParameter("max", max);
++        query.setFirstResult(offset);
++        query.setMaxResults(limit);
++
++        return query.getResultList();
+     }
+ 
+     @Override
+Index: src/main/java/edu/bionic/dao/jpa/JpaUserDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/dao/jpa/JpaUserDao.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
++++ src/main/java/edu/bionic/dao/jpa/JpaUserDao.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -0,0 +1,48 @@
++package edu.bionic.dao.jpa;
++
++import edu.bionic.dao.UserDao;
++import edu.bionic.domain.User;
++import org.springframework.stereotype.Repository;
++import org.springframework.transaction.annotation.Transactional;
++
++import javax.persistence.EntityManager;
++import javax.persistence.PersistenceContext;
++import java.util.List;
++import java.util.Optional;
++
++@Repository
++@Transactional(readOnly = true)
++public class JpaUserDao implements UserDao {
++
++    @PersistenceContext
++    private EntityManager entityManager;
++
++    @Override
++    @Transactional
++    public User save(User user) {
++        if (user.getId() == null) {
++            entityManager.persist(user);
++            return user;
++        } else {
++            return entityManager.merge(user);
++        }
++    }
++
++    @Override
++    public List<User> getAll() {
++        return entityManager.createQuery("SELECT u FROM User u", User.class).getResultList();
++    }
++
++    @Override
++    public Optional<User> getById(int userId) {
++        return Optional.ofNullable(entityManager.find(User.class, userId));
++    }
++
++    @Override
++    public Optional<User> getByEmail(String email) {
++        User user = entityManager.createQuery("SELECT u FROM User u WHERE u.email = :email", User.class)
++                .setParameter("email", email)
++                .getSingleResult();
++        return Optional.ofNullable(user);
++    }
++}
+Index: src/main/java/edu/bionic/domain/Role.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/Role.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
++++ src/main/java/edu/bionic/domain/Role.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -0,0 +1,6 @@
++package edu.bionic.domain;
++
++public enum Role {
++    ADMIN,
++    USER
++}
+Index: src/main/java/edu/bionic/domain/User.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/domain/User.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
++++ src/main/java/edu/bionic/domain/User.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -0,0 +1,104 @@
++package edu.bionic.domain;
++
++import org.hibernate.validator.constraints.NotBlank;
++
++import javax.persistence.*;
++
++@Entity
++@Table(name = "users")
++public class User {
++
++    @Id
++    @Access(AccessType.PROPERTY)
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private Integer id;
++    @NotBlank(message = "Обязательное поле")
++    private String email;
++    @NotBlank(message = "Обязательное поле")
++    private String password;
++    @NotBlank(message = "Обязательное поле")
++    private String name;
++    private Role role;
++
++    public User() {
++    }
++
++    public User(Integer id, String email, String password, String name, Role role) {
++        this.id = id;
++        this.email = email;
++        this.password = password;
++        this.name = name;
++        this.role = role;
++    }
++
++    @Override
++    public boolean equals(Object o) {
++        if (this == o) return true;
++        if (o == null || getClass() != o.getClass()) return false;
++
++        User user = (User) o;
++
++        if (id != null ? !id.equals(user.id) : user.id != null) return false;
++        if (name != null ? !name.equals(user.name) : user.name != null) return false;
++        return email != null ? email.equals(user.email) : user.email == null;
++    }
++
++    @Override
++    public int hashCode() {
++        int result = id != null ? id.hashCode() : 0;
++        result = 31 * result + (name != null ? name.hashCode() : 0);
++        result = 31 * result + (email != null ? email.hashCode() : 0);
++        return result;
++    }
++
++    @Override
++    public String toString() {
++        return "User{" +
++                "id=" + id +
++                ", email='" + email + '\'' +
++                ", password='" + password + '\'' +
++                ", name='" + name + '\'' +
++                ", role=" + role +
++                '}';
++    }
++
++    public Integer getId() {
++        return id;
++    }
++
++    public void setId(Integer id) {
++        this.id = id;
++    }
++
++    public String getName() {
++        return name;
++    }
++
++    public void setName(String name) {
++        this.name = name;
++    }
++
++    public String getPassword() {
++        return password;
++    }
++
++    public void setPassword(String password) {
++        this.password = password;
++    }
++
++    public String getEmail() {
++        return email;
++    }
++
++    public void setEmail(String email) {
++        this.email = email;
++    }
++
++    public Role getRole() {
++        return role;
++    }
++
++    public void setRole(Role role) {
++        this.role = role;
++    }
++}
+Index: src/main/java/edu/bionic/presentation/controller/RootController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/presentation/controller/RootController.java	(revision 65e0ba9c76cc9252c4ba48763cecb6ae73564b0e)
++++ src/main/java/edu/bionic/presentation/controller/RootController.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -1,13 +1,44 @@
+ package edu.bionic.presentation.controller;
+ 
++import edu.bionic.domain.User;
++import edu.bionic.service.UserService;
+ import org.springframework.stereotype.Controller;
++import org.springframework.ui.Model;
++import org.springframework.validation.BindingResult;
+ import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.ModelAttribute;
++import org.springframework.web.bind.annotation.PostMapping;
++
++import javax.validation.Valid;
+ 
+ @Controller
+ public class RootController {
+ 
++    private UserService userService;
++
++    public RootController(UserService userService) {
++        this.userService = userService;
++    }
++
+     @GetMapping("/")
+     public String showMainPage() {
+         return "index";
+     }
+-}
++
++    @GetMapping("/register")
++    public String showRegisterPage(Model model) {
++        model.addAttribute("newUser", new User());
++        return "register";
++    }
++
++    @PostMapping("/register")
++    public String registerNewUser(@Valid @ModelAttribute("newUser") User user,
++                                  BindingResult bindingResult) {
++        if (bindingResult.hasErrors()) {
++            return "register";
++        }
++
++        userService.registerNewUser(user);
++        return "redirect:/";
++    }
++}
+\ No newline at end of file
+Index: src/main/java/edu/bionic/service/UserService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/UserService.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
++++ src/main/java/edu/bionic/service/UserService.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -0,0 +1,8 @@
++package edu.bionic.service;
++
++import edu.bionic.domain.User;
++
++public interface UserService {
++
++    User registerNewUser(User user);
++}
+Index: src/main/java/edu/bionic/service/impl/UserServiceImpl.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/java/edu/bionic/service/impl/UserServiceImpl.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
++++ src/main/java/edu/bionic/service/impl/UserServiceImpl.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -0,0 +1,24 @@
++package edu.bionic.service.impl;
++
++import edu.bionic.dao.UserDao;
++import edu.bionic.domain.Role;
++import edu.bionic.domain.User;
++import edu.bionic.service.UserService;
++import org.springframework.stereotype.Service;
++
++@Service
++public class UserServiceImpl implements UserService {
++
++    private UserDao userDao;
++
++
++    public UserServiceImpl(UserDao userDao) {
++        this.userDao = userDao;
++    }
++
++    @Override
++    public User registerNewUser(User user) {
++        user.setRole(Role.USER);
++        return userDao.save(user);
++    }
++}
+Index: src/main/resources/db/fillDB.sql
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/db/fillDB.sql	(revision 65e0ba9c76cc9252c4ba48763cecb6ae73564b0e)
++++ src/main/resources/db/fillDB.sql	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -1,3 +1,5 @@
++DELETE FROM users;
++ALTER SEQUENCE users_id_seq RESTART WITH 1;
+ DELETE FROM comments;
+ ALTER SEQUENCE comments_id_seq RESTART WITH 1;
+ DELETE FROM orders_products;
+@@ -35,4 +37,9 @@
+ INSERT INTO comments (product_id, author, datetime, text, rating)
+ VALUES (4, 'Анна', '2017-03-12 15:00:00', 'Возникли проблемы на второй месяц использования. Пропадает зук в динамиках', 3);
+ INSERT INTO comments (product_id, author, datetime, text, rating)
+-VALUES (1, 'Инна', '2017-04-05 10:30:00', 'Хоший телефон. Единственный недостаток это цена :(', 4);
+\ No newline at end of file
++VALUES (1, 'Инна', '2017-04-05 10:30:00', 'Хоший телефон. Единственный недостаток это цена :(', 4);
++
++INSERT INTO users (email, password, name, role)
++VALUES ('admin@mail.com', 'admin', 'Administrator', 0);
++INSERT INTO users (email, password, name, role)
++VALUES ('user@mail.com', 'user', 'Username', 1);
+\ No newline at end of file
+Index: src/main/resources/db/initDB_hsql.sql
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/db/initDB_hsql.sql	(revision 65e0ba9c76cc9252c4ba48763cecb6ae73564b0e)
++++ src/main/resources/db/initDB_hsql.sql	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -1,3 +1,5 @@
++DROP TABLE IF EXISTS users;
++DROP SEQUENCE IF EXISTS users_id_seq;
+ DROP TABLE IF EXISTS comments;
+ DROP SEQUENCE IF EXISTS comments_id_seq;
+ DROP TABLE IF EXISTS orders_products;
+@@ -44,4 +46,13 @@
+   text        LONGVARCHAR,
+   rating      INTEGER,
+   FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+-)
+\ No newline at end of file
++);
++
++CREATE SEQUENCE users_id_seq AS INTEGER START WITH 1;
++CREATE TABLE users (
++  id          INTEGER GENERATED BY DEFAULT AS SEQUENCE users_id_seq PRIMARY KEY,
++  email       LONGVARCHAR NOT NULL UNIQUE,
++  password    LONGVARCHAR NOT NULL,
++  name        LONGVARCHAR NOT NULL,
++  role        INTEGER NOT NULL
++);
+\ No newline at end of file
+Index: src/main/resources/db/initDB_postgres.sql
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/resources/db/initDB_postgres.sql	(revision 65e0ba9c76cc9252c4ba48763cecb6ae73564b0e)
++++ src/main/resources/db/initDB_postgres.sql	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -1,3 +1,4 @@
++DROP TABLE IF EXISTS users;
+ DROP TABLE IF EXISTS comments;
+ DROP TABLE IF EXISTS orders_products;
+ DROP TABLE IF EXISTS orders;
+@@ -38,4 +39,12 @@
+   text        TEXT,
+   rating      INTEGER,
+   FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+-)
+\ No newline at end of file
++);
++
++CREATE TABLE users (
++  id          SERIAL PRIMARY KEY,
++  email       TEXT NOT NULL UNIQUE,
++  password    TEXT NOT NULL,
++  name        TEXT NOT NULL,
++  role        INTEGER NOT NULL
++);
+\ No newline at end of file
+Index: src/main/webapp/WEB-INF/views/register.jsp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/webapp/WEB-INF/views/register.jsp	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
++++ src/main/webapp/WEB-INF/views/register.jsp	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -0,0 +1,36 @@
++<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
++<%@ taglib prefix="с" uri="http://java.sun.com/jsp/jstl/core" %>
++<%@ page contentType="text/html;charset=UTF-8" language="java" %>
++<html>
++<head>
++    <title>iShop | Регистрация</title>
++</head>
++<body>
++    <h1>Регистрация нового пользователя</h1>
++    <form:form modelAttribute="newUser">
++        <p>
++            <label>Email</label>
++            <form:input path="email"/>
++            <form:errors path="email" cssStyle="color: red"/>
++        </p>
++        <p>
++            <label>Пароль</label>
++            <form:input path="password"/>
++            <form:errors path="password" cssStyle="color: red"/>
++        </p>
++        <p>
++            Информация о себе:
++        </p>
++        <p>
++            <label>Имя</label>
++            <form:input path="name"/>
++            <form:errors path="name" cssStyle="color: red"/>
++        </p>
++        <button>Зарегистрироваться</button>
++    </form:form>
++
++    <a href="<с:url value="/"/> ">
++        <button>На главную</button>
++    </a>
++</body>
++</html>
+Index: src/test/java/edu/bionic/dao/ProductDaoTest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/java/edu/bionic/dao/ProductDaoTest.java	(revision 65e0ba9c76cc9252c4ba48763cecb6ae73564b0e)
++++ src/test/java/edu/bionic/dao/ProductDaoTest.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -6,6 +6,8 @@
+ import org.junit.Test;
+ import org.springframework.beans.factory.annotation.Autowired;
+ 
++import java.math.BigDecimal;
++import java.util.Comparator;
+ import java.util.List;
+ import java.util.stream.Collectors;
+ 
+@@ -22,7 +24,6 @@
+         Assert.assertEquals(expected.toString(), actual.toString());
+     }
+ 
+-
+     @Test
+     public void getById() throws Exception {
+         Product expected = ProductFactory.getProduct1();
+@@ -71,4 +72,144 @@
+         boolean isDeleted = productDao.delete(1000);
+         Assert.assertEquals(isDeleted, false);
+     }
++
++    @Test
++    public void getAllSortedByName() throws Exception {
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream()
++                .sorted(Comparator.comparing(Product::getName))
++                .collect(Collectors.toList());
++
++        List<Product> actual = productDao.getAllSortedByName(null, null, null, false, 0, 1000);
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getAllSortedByNameWithLimits() throws Exception {
++        int offset = 2;
++        int limit = 3;
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream()
++                .sorted(Comparator.comparing(Product::getName))
++                .skip(offset)
++                .limit(limit)
++                .collect(Collectors.toList());
++
++        List<Product> actual = productDao.getAllSortedByName(null, null, null, false, offset, limit);
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getAllSortedByNameDesc() throws Exception {
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream()
++                .sorted((p1, p2) -> p2.getName().compareTo(p1.getName()))
++                .collect(Collectors.toList());
++
++        List<Product> actual = productDao.getAllSortedByName(null, null, null, true, 0, 1000);
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getAllFilteredByNameSortedByName() throws Exception {
++        String filterName = "Plus";
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream()
++                .filter(product -> product.getName().contains(filterName))
++                .sorted(Comparator.comparing(Product::getName))
++                .collect(Collectors.toList());
++
++        List<Product> actual = productDao.getAllSortedByName(filterName, null, null, false, 0, 1000);
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getAllFilteredByPriceSortedByName() throws Exception {
++        BigDecimal filterMin = BigDecimal.valueOf(650);
++        BigDecimal filterMax = BigDecimal.valueOf(700);
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream()
++                .filter(product -> product.getPrice().compareTo(filterMin) >= 0
++                        && product.getPrice().compareTo(filterMax) <= 0)
++                .sorted(Comparator.comparing(Product::getName))
++                .collect(Collectors.toList());
++
++        List<Product> actual = productDao.getAllSortedByName(null, filterMin, filterMax, false, 0, 1000);
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getAllSortedByPrice() throws Exception {
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream()
++                .sorted(Comparator.comparing(Product::getPrice))
++                .collect(Collectors.toList());
++
++        List<Product> actual = productDao.getAllSortedByPrice(null, null, null, false, 0, 1000);
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getAllSortedByPriceWithLimits() throws Exception {
++        int offset = 2;
++        int limit = 3;
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream()
++                .sorted(Comparator.comparing(Product::getPrice))
++                .skip(offset)
++                .limit(limit)
++                .collect(Collectors.toList());
++
++        List<Product> actual = productDao.getAllSortedByPrice(null, null, null, false, offset, limit);
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getAllSortedByPriceDesc() throws Exception {
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream()
++                .sorted((p1, p2) -> p2.getPrice().compareTo(p1.getPrice()))
++                .collect(Collectors.toList());
++
++        List<Product> actual = productDao.getAllSortedByPrice(null, null, null, true, 0, 1000);
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getAllFilteredByNameSortedByPrice() throws Exception {
++        String filterName = "Plus";
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream()
++                .filter(product -> product.getName().contains(filterName))
++                .sorted(Comparator.comparing(Product::getPrice))
++                .collect(Collectors.toList());
++
++        List<Product> actual = productDao.getAllSortedByPrice(filterName, null, null, false, 0, 1000);
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getAllFilteredByPriceSortedByPrice() throws Exception {
++        BigDecimal filterMin = BigDecimal.valueOf(650);
++        BigDecimal filterMax = BigDecimal.valueOf(700);
++        List<Product> expected = ProductFactory.getAllProducts()
++                .stream()
++                .filter(product -> product.getPrice().compareTo(filterMin) >= 0
++                        && product.getPrice().compareTo(filterMax) <= 0)
++                .sorted(Comparator.comparing(Product::getPrice))
++                .collect(Collectors.toList());
++
++        List<Product> actual = productDao.getAllSortedByPrice(null, filterMin, filterMax, false, 0, 1000);
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
+ }
+\ No newline at end of file
+Index: src/test/java/edu/bionic/dao/UserDaoTest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/java/edu/bionic/dao/UserDaoTest.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
++++ src/test/java/edu/bionic/dao/UserDaoTest.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -0,0 +1,57 @@
++package edu.bionic.dao;
++
++import com.google.common.collect.Lists;
++import edu.bionic.domain.User;
++import org.junit.Assert;
++import org.junit.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++
++import java.util.List;
++
++import static edu.bionic.testdata.UserFactory.*;
++
++public class UserDaoTest extends BaseDaoTest {
++
++    @Autowired
++    private UserDao userDao;
++
++    @Test
++    public void save() throws Exception {
++        User newUser = newUser();
++        User savedUser = userDao.save(newUser);
++        newUser.setId(savedUser.getId());
++
++        List<User> expected = Lists.newArrayList(getAdmin(), getUser(), newUser);
++        List<User> actual = userDao.getAll();
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getAll() throws Exception {
++        List<User> expected = Lists.newArrayList(getAdmin(), getUser());
++        List<User> actual = userDao.getAll();
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getById() throws Exception {
++        int userId = getUser().getId();
++        User expected = getUser();
++        User actual = userDao.getById(2).get();
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++    @Test
++    public void getByEmail() throws Exception {
++        String email = getUser().getEmail();
++
++        User expected = getUser();
++        User actual = userDao.getByEmail(email).get();
++
++        Assert.assertEquals(expected.toString(), actual.toString());
++    }
++
++}
+\ No newline at end of file
+Index: src/test/java/edu/bionic/testdata/UserFactory.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/java/edu/bionic/testdata/UserFactory.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
++++ src/test/java/edu/bionic/testdata/UserFactory.java	(revision 2ce6d3b8f7cd39953edee72669a88cac4014557b)
+@@ -0,0 +1,37 @@
++package edu.bionic.testdata;
++
++import edu.bionic.domain.Role;
++import edu.bionic.domain.User;
++
++public class UserFactory {
++
++    public static User getAdmin() {
++        return new User(
++                1,
++                "admin@mail.com",
++                "admin",
++                "Administrator",
++                Role.ADMIN
++        );
++    }
++
++    public static User getUser() {
++        return new User(
++                2,
++                "user@mail.com",
++                "user",
++                "Username",
++                Role.USER
++        );
++    }
++
++    public static User newUser() {
++        return new User(
++                null,
++                "new_user@mail.com",
++                "pass",
++                "New User",
++                Role.USER
++        );
++    }
++}

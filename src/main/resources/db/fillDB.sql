@@ -1,3 +1,5 @@
+DELETE FROM users;
+ALTER SEQUENCE users_id_seq RESTART WITH 1;
 DELETE FROM comments;
 ALTER SEQUENCE comments_id_seq RESTART WITH 1;
 DELETE FROM orders_products;
@@ -36,3 +38,8 @@ INSERT INTO comments (product_id, author, datetime, text, rating)
 VALUES (4, 'Анна', '2017-03-12 15:00:00', 'Возникли проблемы на второй месяц использования. Пропадает зук в динамиках', 3);
 INSERT INTO comments (product_id, author, datetime, text, rating)
 VALUES (1, 'Инна', '2017-04-05 10:30:00', 'Хоший телефон. Единственный недостаток это цена :(', 4);
+
+INSERT INTO users (email, password, name, role)
+VALUES ('admin@mail.com', '$2a$10$8IHi8NJot3CY5BDlHrivr.cVMJwtznYTNli3p7GcgwOtsF8VxgMWK', 'Administrator', 0);
+INSERT INTO users (email, password, name, role)
+VALUES ('user@mail.com', '$2a$10$PgBb/VbejOXpdopzGU3AquVu9LDr9PhQ0fcBiGIYsVQeKB.p/paQm', 'Username', 1);

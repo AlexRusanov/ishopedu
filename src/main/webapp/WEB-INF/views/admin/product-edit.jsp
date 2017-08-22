@@ -7,6 +7,7 @@
     <title>iShop Админка | Редактирование продукта</title>
 </head>
 <body>
+<jsp:include page="../components/header.jsp"/>
     <h1>${isNew ? "Новый товар" : "Редактирование товара №".concat(product.id)}</h1>
     <form:form modelAttribute="product">
         <form:hidden path="id"/>

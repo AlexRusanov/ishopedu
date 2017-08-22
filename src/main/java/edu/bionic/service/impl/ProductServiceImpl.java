@@ -2,7 +2,7 @@ package edu.bionic.service.impl;
 
 import edu.bionic.dao.ProductDao;
 import edu.bionic.domain.Product;
-import edu.bionic.domain.ProductSort;
+import edu.bionic.dto.ProductSort;
 import edu.bionic.service.ProductService;
 import edu.bionic.util.exception.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;

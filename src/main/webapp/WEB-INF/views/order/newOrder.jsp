@@ -6,6 +6,7 @@
     <title>iShop | Оформление заказа</title>
 </head>
 <body>
+<jsp:include page="../components/header.jsp"/>
 <c:if test="${currentOrder.products.size() == 0}">
     На данный момент товаров в корзине нет
 </c:if>

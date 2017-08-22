@@ -5,6 +5,7 @@
     <title>iShop Админка  | Список товаров</title>
 </head>
 <body>
+<jsp:include page="../components/header.jsp"/>
     <h1>Таблица товаров магазина</h1>
     <a href="<c:url value="/admin/products/new"/>">
         <button type="button">Добавить товар</button>

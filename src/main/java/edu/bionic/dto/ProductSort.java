@@ -1,4 +1,4 @@
-package edu.bionic.domain;
+package edu.bionic.dto;
 
 public enum  ProductSort {
     NAME_ASC,

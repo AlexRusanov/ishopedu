@@ -5,7 +5,8 @@
     <title>iShop | Главная</title>
 </head>
 <body>
-<h1>Добропожаловать в мазазин iShop</h1>
+<jsp:include page="components/header.jsp"/>
+<h1>Добро пожаловать в мазазин iShop</h1>
 <ul>
     <li><a href="<c:url value="/products"/>">Каталог товаров</a></li>
     <li><a href="<c:url value="/orders"/> ">Предыдущие заказы</a></li>

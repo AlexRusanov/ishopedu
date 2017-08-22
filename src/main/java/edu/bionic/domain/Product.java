@@ -30,12 +30,9 @@ public class Product {
     private String display;
     private String description;
 
-    public Product() {
-    }
+    public Product() {}
 
-    public Product(Integer id) {
-        this.id = id;
-    }
+    public Product(Integer id) {this.id = id;}
 
     public Product(Integer id, String name, BigDecimal price, Color color, Integer capacity, String display, String description) {
         this.id = id;

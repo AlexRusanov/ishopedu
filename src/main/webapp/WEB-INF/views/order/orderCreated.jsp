@@ -5,6 +5,7 @@
     <title>iShop | Успешный заказ</title>
 </head>
 <body>
+<jsp:include page="../components/header.jsp"/>
     <h1>Заказ успешно сохранен</h1>
     <p>
         Менеджеры свяжуться с вами в ближайшее время.

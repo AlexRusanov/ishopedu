@@ -77,21 +77,13 @@ public class Comment {
                 '}';
     }
 
-    public Integer getId() {
-        return id;
-    }
+    public Integer getId() {return id;}
 
-    public void setId(Integer id) {
-        this.id = id;
-    }
+    public void setId(Integer id) {this.id = id;}
 
-    public Product getProduct() {
-        return product;
-    }
+    public Product getProduct() {return product;}
 
-    public void setProduct(Product product) {
-        this.product = product;
-    }
+    public void setProduct(Product product) {this.product = product;}
 
     public String getAuthor() {
         return author;

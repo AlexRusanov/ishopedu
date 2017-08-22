@@ -2,7 +2,7 @@ package edu.bionic.presentation.controller;
 
 import edu.bionic.domain.Comment;
 import edu.bionic.domain.Order;
-import edu.bionic.domain.ProductSort;
+import edu.bionic.dto.ProductSort;
 import edu.bionic.service.CommentService;
 import edu.bionic.service.OrderService;
 import edu.bionic.service.ProductService;

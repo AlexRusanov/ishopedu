@@ -5,6 +5,7 @@
     <title>iShop | Предыдущие заказы</title>
 </head>
 <body>
+<jsp:include page="../components/header.jsp"/>
     <h1>Предыдущие заказы</h1>
     <c:if test="${orders.size() == 0}">
         Истоиря заказов на данный момент отсутствует

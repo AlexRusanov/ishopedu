@@ -1,4 +1,4 @@
-<%@ page import="edu.bionic.domain.ProductSort" %>
+<%@ page import="edu.bionic.dto.ProductSort" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <html>
@@ -6,6 +6,7 @@
     <title>iShop | Каталог товаров</title>
 </head>
 <body>
+<jsp:include page="../components/header.jsp"/>
 <h1>Каталог товаров iShop</h1>
 <form>
     <p>
@@ -24,13 +25,21 @@
         <label for="sort">Сортировка</label>
         <select id="sort" name="sort">
             <option value="<%= ProductSort.NAME_ASC.name() %>"
-                    <%= ProductSort.NAME_ASC.name().equals(request.getParameter("sort")) ? "selected" : "" %>>По алфавиту А-Я</option>
+                    <%= ProductSort.NAME_ASC.name().equals(request.getParameter("sort")) ? "selected" : "" %>>По
+                алфавиту А-Я
+            </option>
             <option value="<%= ProductSort.NAME_DESC.name() %>"
-                    <%= ProductSort.NAME_DESC.name().equals(request.getParameter("sort")) ? "selected" : "" %>>По алфавиту Я-А</option>
+                    <%= ProductSort.NAME_DESC.name().equals(request.getParameter("sort")) ? "selected" : "" %>>По
+                алфавиту Я-А
+            </option>
             <option value="<%= ProductSort.PRICE_ASC.name() %>"
-                    <%= ProductSort.PRICE_ASC.name().equals(request.getParameter("sort")) ? "selected" : "" %>>От дешевых к дорогим</option>
+                    <%= ProductSort.PRICE_ASC.name().equals(request.getParameter("sort")) ? "selected" : "" %>>От
+                дешевых к дорогим
+            </option>
             <option value="<%= ProductSort.PRICE_DESC.name() %>"
-                    <%= ProductSort.PRICE_DESC.name().equals(request.getParameter("sort")) ? "selected" : "" %>>От дорогих к дешевым</option>
+                    <%= ProductSort.PRICE_DESC.name().equals(request.getParameter("sort")) ? "selected" : "" %>>От
+                дорогих к дешевым
+            </option>
         </select>
     </p>
     <button type="submit">Поиск</button>

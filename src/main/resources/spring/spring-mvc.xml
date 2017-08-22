@@ -14,4 +14,8 @@
         <property name="suffix" value=".jsp"/>
     </bean>
 
+    <mvc:interceptors>
+        <bean class="edu.bionic.presentation.controller.interceptor.ModelInterceptor"/>
+    </mvc:interceptors>
+
 </beans>
