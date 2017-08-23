@@ -26,11 +26,6 @@ public class RootController {
         return "index";
     }
 
-//    @GetMapping("/login")
-//    public String showLoginForm(){
-//        return "login";
-//    }
-
     @GetMapping("/login")
     public String loginPage(Authentication authentication) {
         if (authentication != null && authentication.isAuthenticated()) {

@@ -37,10 +37,11 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         User newUser = userDao.save(user);
 
+//        для автоматического логина после регистрации
         UsernamePasswordAuthenticationToken authenticationToken =
                 new UsernamePasswordAuthenticationToken(new LoggedUser(newUser),
                         null,
-                        Collections.singleton(user.getRole()));
+                            Collections.singleton(user.getRole()));
         SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 
         return newUser;
