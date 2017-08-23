@@ -12,7 +12,7 @@
         <intercept-url pattern="/admin/**" access="hasAuthority('ADMIN')"/>
 
         <intercept-url pattern="/**" access="permitAll()"/>
-
+<!--post метод по ссылке login-->
         <form-login login-page="/login" default-target-url="/orders"
                     authentication-failure-url="/login?error=true"/>
         <logout logout-success-url="/login?logout=true"/>
