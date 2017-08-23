@@ -21,6 +21,11 @@ public class OrderDaoMock implements OrderDao {
         return order;
     }
 
+    @Override
+    public List<Order> getAllByUser(int userId) {
+        return null;
+    }
+
     public void initOrderStorage() {
         orderStorage = new ArrayList<>();
     }

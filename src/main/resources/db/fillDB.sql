@@ -1,10 +1,10 @@
-DELETE FROM users;
-ALTER SEQUENCE users_id_seq RESTART WITH 1;
 DELETE FROM comments;
 ALTER SEQUENCE comments_id_seq RESTART WITH 1;
 DELETE FROM orders_products;
 DELETE FROM orders;
 ALTER SEQUENCE orders_id_seq RESTART WITH 1;
+DELETE FROM users;
+ALTER SEQUENCE users_id_seq RESTART WITH 1;
 DELETE FROM products;
 ALTER SEQUENCE products_id_seq RESTART WITH 1;
 
@@ -21,10 +21,15 @@ VALUES ('iPhone 7 Plus', 800, 2, 64, '5,5 inch', NULL);
 INSERT INTO products (name, price, color, capacity, display, description)
 VALUES ('iPhone 8 Plus', 900, 1, 128, '5,5 inch', NULL);
 
-INSERT INTO orders (total_amount, datetime, name, email, phone, address)
-VALUES (1500, '2017-06-01 14:00:00', 'Олег', 'oleg@gmail.com', '095664356273', 'ул. Дорогожицкая, 1');
-INSERT INTO orders (total_amount, datetime, name, email, phone, address)
-VALUES (2200, '2017-07-23 18:00:00', 'Аня', 'anya@gmail.com', '095664357685', 'ул. Артема, 30');
+INSERT INTO users (email, password, name, role)
+VALUES ('admin@mail.com', '$2a$10$8IHi8NJot3CY5BDlHrivr.cVMJwtznYTNli3p7GcgwOtsF8VxgMWK', 'Administrator', 0);
+INSERT INTO users (email, password, name, role)
+VALUES ('user@mail.com', '$2a$10$PgBb/VbejOXpdopzGU3AquVu9LDr9PhQ0fcBiGIYsVQeKB.p/paQm', 'Username', 1);
+
+INSERT INTO orders (total_amount, datetime, name, email, phone, address, user_id)
+VALUES (1500, '2017-06-01 14:00:00', 'Олег', 'oleg@gmail.com', '095664356273', 'ул. Дорогожицкая, 1', 2);
+INSERT INTO orders (total_amount, datetime, name, email, phone, address, user_id)
+VALUES (2200, '2017-07-23 18:00:00', 'Аня', 'anya@gmail.com', '095664357685', 'ул. Артема, 30', null);
 
 INSERT INTO orders_products (order_id, product_id) VALUES (1, 1);
 INSERT INTO orders_products (order_id, product_id) VALUES (1, 5);
@@ -38,8 +43,3 @@ INSERT INTO comments (product_id, author, datetime, text, rating)
 VALUES (4, 'Анна', '2017-03-12 15:00:00', 'Возникли проблемы на второй месяц использования. Пропадает зук в динамиках', 3);
 INSERT INTO comments (product_id, author, datetime, text, rating)
 VALUES (1, 'Инна', '2017-04-05 10:30:00', 'Хоший телефон. Единственный недостаток это цена :(', 4);
-
-INSERT INTO users (email, password, name, role)
-VALUES ('admin@mail.com', '$2a$10$8IHi8NJot3CY5BDlHrivr.cVMJwtznYTNli3p7GcgwOtsF8VxgMWK', 'Administrator', 0);
-INSERT INTO users (email, password, name, role)
-VALUES ('user@mail.com', '$2a$10$PgBb/VbejOXpdopzGU3AquVu9LDr9PhQ0fcBiGIYsVQeKB.p/paQm', 'Username', 1);

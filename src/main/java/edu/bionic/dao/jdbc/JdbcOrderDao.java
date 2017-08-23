@@ -6,10 +6,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,8 +51,24 @@ public class JdbcOrderDao implements OrderDao {
     }
 
     @Override
+    public List<Order> getAllByUser(int userId) {
+        String sql = "SELECT * FROM orders WHERE user_id = ?";
+        List<Order> orders = jdbcTemplate.query(sql, new Object[]{userId}, ROW_MAPPER);
+        orders.forEach(order -> order.setProducts(jdbcProductDao.getByOrder(order.getId())));
+        return orders;
+    }
+
+    @Override
     public Order save(Order order) {
-        SqlParameterSource orderParameterSource = new BeanPropertySqlParameterSource(order);
+        MapSqlParameterSource orderParameterSource = new MapSqlParameterSource()
+                .addValue("total_amount", order.getTotalAmount())
+                .addValue("datetime", order.getDateTime())
+                .addValue("name", order.getName())
+                .addValue("email", order.getEmail())
+                .addValue("phone", order.getPhone())
+                .addValue("address", order.getAddress())
+                .addValue("user_id", order.getUser() != null ?
+                        order.getUser().getId() : null);
         Number newId = orderInsert.executeAndReturnKey(orderParameterSource);
         order.setId(newId.intValue());
 

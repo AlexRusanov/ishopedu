@@ -8,5 +8,7 @@ public interface OrderDao {
 
     List<Order> getAll();
 
+    List<Order> getAllByUser(int userId);
+
     Order save(Order order);
 }

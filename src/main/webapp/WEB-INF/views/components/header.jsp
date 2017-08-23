@@ -10,6 +10,11 @@
     <a href="<c:url value="/products"/> ">
         Товары
     </a>
+    <sec:authorize url="/orders">
+        <a href="<c:url value="/orders"/> ">
+            Предыдущие заказы
+        </a>
+    </sec:authorize>
 
     <sec:authorize access="isAuthenticated()">
         <form:form servletRelativeAction="/logout" cssStyle="float: right">

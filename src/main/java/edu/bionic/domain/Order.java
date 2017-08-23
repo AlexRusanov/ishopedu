@@ -41,6 +41,10 @@ public class Order {
     @NotBlank(message = "Это поле должно быть заполнено")
     private String address;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
 
     public Order() {
         this.products = new ArrayList<>();
@@ -52,7 +56,7 @@ public class Order {
         this.products = new ArrayList<>(products);
     }
 
-    public Order(Integer id, LocalDateTime dateTime, BigDecimal totalAmount, List<Product> products, String name, String email, String phone, String address) {
+    public Order(Integer id, LocalDateTime dateTime, BigDecimal totalAmount, List<Product> products, String name, String email, String phone, String address, User user) {
         this.id = id;
         this.dateTime = dateTime;
         this.totalAmount = totalAmount.setScale(2, BigDecimal.ROUND_HALF_UP);
@@ -61,6 +65,7 @@ public class Order {
         this.email = email;
         this.phone = phone;
         this.address = address;
+        this.user = user;
     }
 
     @Override
@@ -171,5 +176,13 @@ public class Order {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 }

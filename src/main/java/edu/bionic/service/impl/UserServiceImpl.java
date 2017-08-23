@@ -7,6 +7,7 @@ import edu.bionic.dto.LoggedUser;
 import edu.bionic.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -51,5 +52,14 @@ public class UserServiceImpl implements UserService, UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         Optional<User> user = userDao.getByEmail(username);
         return user.map(LoggedUser::new).orElse(null);
+    }
+
+    @Override
+    public Optional<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication.getPrincipal() instanceof LoggedUser) {
+            return Optional.of(((LoggedUser) authentication.getPrincipal()).getUser());
+        }
+        return Optional.empty();
     }
 }

@@ -23,6 +23,13 @@ public class JpaOrderDao implements OrderDao {
     }
 
     @Override
+    public List<Order> getAllByUser(int userId) {
+        return entityManager.createQuery("SELECT o FROM Order o WHERE o.user.id = :userId", Order.class)
+                .setParameter("userId", userId)
+                .getResultList();
+    }
+
+    @Override
     @Transactional
     public Order save(Order order) {
         if (order.getId() == null) {

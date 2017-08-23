@@ -1,7 +1,7 @@
-DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS orders_products;
 DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS products;
 
 CREATE TABLE products (
@@ -14,6 +14,14 @@ CREATE TABLE products (
   description TEXT
 );
 
+CREATE TABLE users (
+  id          SERIAL PRIMARY KEY,
+  email       TEXT NOT NULL UNIQUE,
+  password    TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  role        INTEGER NOT NULL
+);
+
 CREATE TABLE orders (
   id            SERIAL PRIMARY KEY,
   total_amount  NUMERIC(10,2) NOT NULL,
@@ -21,7 +29,9 @@ CREATE TABLE orders (
   name          TEXT NOT NULL,
   email         TEXT NOT NULL,
   phone         TEXT,
-  address       TEXT NOT NULL
+  address       TEXT NOT NULL,
+  user_id       INTEGER,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
 );
 
 CREATE TABLE orders_products (
@@ -39,12 +49,4 @@ CREATE TABLE comments (
   text        TEXT,
   rating      INTEGER,
   FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
-);
-
-CREATE TABLE users (
-  id          SERIAL PRIMARY KEY,
-  email       TEXT NOT NULL UNIQUE,
-  password    TEXT NOT NULL,
-  name        TEXT NOT NULL,
-  role        INTEGER NOT NULL
 );
